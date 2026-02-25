@@ -19,21 +19,37 @@
 
         <main>
             <section class="controls-section glass-panel">
-                <div class="tabs">
-                    <button id="tab-all" class="tab-btn active">All Ports</button>
-                    <button id="tab-fav" class="tab-btn">Favorites <span class="star-icon">★</span></button>
+                <div class="toolbar-row">
+                    <div class="tabs">
+                        <button id="tab-all" class="tab-btn active">All Ports</button>
+                        <button id="tab-fav" class="tab-btn">Favorites <span class="star-icon">★</span></button>
+                    </div>
+                    <div class="search-box">
+                        <input type="text" id="search-input" placeholder="Search by port or crossing name...">
+                        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                    </div>
                 </div>
-                <div class="meta-badges">
-                    <span id="last-updated" class="badge">Loading...</span>
-                    <span id="refresh-countdown" class="badge outline">Next refresh in 5:00</span>
-                </div>
-                <div class="search-box">
-                    <input type="text" id="search-input" placeholder="Search by port or crossing name...">
-                    <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                        stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="11" cy="11" r="8"></circle>
-                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                    </svg>
+                <div class="toolbar-row">
+                    <div class="status-filters">
+                        <button class="filter-btn active" data-status="all">All</button>
+                        <button class="filter-btn" data-status="open">Open</button>
+                        <button class="filter-btn" data-status="closed">Closed</button>
+                    </div>
+                    <div class="meta-badges">
+                        <span id="last-updated" class="badge">Loading...</span>
+                        <span id="refresh-countdown" class="badge outline">Next refresh in 5:00</span>
+                    </div>
+                    <div class="sort-control">
+                        <select id="sort-select">
+                            <option value="alpha">A → Z</option>
+                            <option value="shortest">Shortest Wait</option>
+                            <option value="longest">Longest Wait</option>
+                        </select>
+                    </div>
                 </div>
             </section>
 

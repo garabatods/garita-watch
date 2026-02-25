@@ -3,6 +3,8 @@ let allPorts = [];
 let filteredPorts = [];
 let favorites = JSON.parse(localStorage.getItem('bwtFavorites')) || [];
 let currentFilter = 'all'; // 'all' or 'fav'
+let currentStatus = 'all'; // 'all', 'open', 'closed'
+let currentSort = 'alpha'; // 'alpha', 'shortest', 'longest'
 let nextRefreshTime = 0;
 let refreshInterval, countdownInterval;
 
@@ -15,6 +17,8 @@ const tabAll = document.getElementById('tab-all');
 const tabFav = document.getElementById('tab-fav');
 const lastUpdatedEl = document.getElementById('last-updated');
 const refreshCountdownEl = document.getElementById('refresh-countdown');
+const sortSelect = document.getElementById('sort-select');
+const filterBtns = document.querySelectorAll('.filter-btn');
 
 // Initialize
 async function init() {
@@ -44,6 +48,20 @@ function setupEventListeners() {
         currentFilter = 'fav';
         tabFav.classList.add('active');
         tabAll.classList.remove('active');
+        render();
+    });
+
+    filterBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            currentStatus = btn.dataset.status;
+            filterBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            render();
+        });
+    });
+
+    sortSelect.addEventListener('change', () => {
+        currentSort = sortSelect.value;
         render();
     });
 }
@@ -181,8 +199,20 @@ function render() {
         }
         const matchesSearch = matchStr.includes(query);
         const matchesTab = currentFilter === 'all' || favorites.includes(p.port_number);
-        return matchesSearch && matchesTab;
+        const matchesStatus = currentStatus === 'all' ||
+            (currentStatus === 'open' && p.port_status?.toLowerCase() === 'open') ||
+            (currentStatus === 'closed' && p.port_status?.toLowerCase() !== 'open');
+        return matchesSearch && matchesTab && matchesStatus;
     });
+
+    // Apply sorting
+    if (currentSort === 'alpha') {
+        filteredPorts.sort((a, b) => a.port_name.localeCompare(b.port_name));
+    } else if (currentSort === 'shortest') {
+        filteredPorts.sort((a, b) => getPortWaitTime(a) - getPortWaitTime(b));
+    } else if (currentSort === 'longest') {
+        filteredPorts.sort((a, b) => getPortWaitTime(b) - getPortWaitTime(a));
+    }
 
     grid.innerHTML = '';
 
@@ -304,6 +334,12 @@ function renderLaneType(container, name, details) {
 
     container.appendChild(tpl);
     return true;
+}
+// Get the primary wait time for sorting (passenger vehicle standard lane)
+function getPortWaitTime(port) {
+    const delay = port.passenger?.standard?.delay_minutes;
+    if (!delay || delay === '' || isNaN(delay)) return currentSort === 'shortest' ? Infinity : -1;
+    return parseInt(delay);
 }
 
 // Run
