@@ -1,0 +1,9 @@
+{
+    "rewrites": [
+        {
+            "source": "/api/bwt",
+            "destination": "/api/bwt"
+        }
+    ],
+    "outputDirectory": "public"
+}
