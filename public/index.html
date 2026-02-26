@@ -14,7 +14,10 @@
 <body>
     <div class="app-container">
         <header class="banner-header">
-            <img src="banner.png" alt="Garita Watch - Tiempos de cruce en vivo" class="banner-img">
+            <picture>
+                <source media="(max-width: 768px)" srcset="banner-mobile.png">
+                <img src="banner.png" alt="Garita Watch - Tiempos de cruce en vivo" class="banner-img">
+            </picture>
         </header>
 
         <main>
@@ -24,6 +27,12 @@
                         <button id="tab-all" class="tab-btn active">All Ports</button>
                         <button id="tab-fav" class="tab-btn">Favorites <span class="star-icon">★</span></button>
                     </div>
+                    <div class="meta-badges">
+                        <span id="last-updated" class="badge">Loading...</span>
+                        <span id="refresh-countdown" class="badge outline">Next refresh in 5:00</span>
+                    </div>
+                </div>
+                <div class="toolbar-row">
                     <div class="search-box">
                         <input type="text" id="search-input" placeholder="Search by port or crossing name...">
                         <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -32,22 +41,21 @@
                             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                         </svg>
                     </div>
-                </div>
-                <div class="toolbar-row">
                     <div class="status-filters">
-                        <button class="filter-btn active" data-status="all">All</button>
-                        <button class="filter-btn" data-status="open">Open</button>
+                        <button class="filter-btn active" data-status="open">Open</button>
                         <button class="filter-btn" data-status="closed">Closed</button>
-                    </div>
-                    <div class="meta-badges">
-                        <span id="last-updated" class="badge">Loading...</span>
-                        <span id="refresh-countdown" class="badge outline">Next refresh in 5:00</span>
+                        <button class="filter-btn" data-status="all">All</button>
                     </div>
                     <div class="sort-control">
+                        <svg class="sort-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M11 5h10M11 9h7M11 13h4M3 17l3 3 3-3M6 18V4" />
+                        </svg>
                         <select id="sort-select">
                             <option value="alpha">A → Z</option>
                             <option value="shortest">Shortest Wait</option>
                             <option value="longest">Longest Wait</option>
+                            <option value="nearest">📍 Nearest</option>
                         </select>
                     </div>
                 </div>
@@ -72,23 +80,18 @@
     <template id="port-card-template">
         <article class="port-card glass-panel group">
             <header class="card-header">
-                <div class="card-title-container">
-                    <h2 class="port-name"></h2>
-                    <h3 class="crossing-name"></h3>
-                </div>
-                <div class="card-actions">
-                    <button class="fav-btn" aria-label="Toggle Favorite">
-                        <svg viewBox="0 0 24 24">
-                            <path
-                                d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                        </svg>
-                    </button>
-                    <div class="card-meta">
-                        <span class="status-badge port-status"></span>
-                        <span class="hours-text"></span>
-                    </div>
-                </div>
+                <h2 class="port-name"></h2>
+                <button class="fav-btn" aria-label="Toggle Favorite">
+                    <svg viewBox="0 0 24 24">
+                        <path
+                            d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                    </svg>
+                </button>
             </header>
+            <div class="card-subtitle">
+                <span class="status-badge port-status"></span>
+                <span class="hours-text"></span>
+            </div>
             <div class="lanes-container">
                 <!-- Crossing details go here -->
             </div>
@@ -97,20 +100,23 @@
 
     <template id="lane-category-template">
         <div class="lane-category">
-            <h4 class="category-title"></h4>
+            <div class="category-header">
+                <span class="category-icon"></span>
+                <h4 class="category-title"></h4>
+            </div>
             <div class="lane-types"></div>
         </div>
     </template>
 
     <template id="lane-type-template">
         <div class="lane-type">
-            <div class="lane-type-header">
+            <span class="delay-badge"></span>
+            <div class="lane-info">
                 <span class="lane-name"></span>
-                <span class="delay-badge"></span>
-            </div>
-            <div class="lane-details">
-                <span class="lanes-open"></span>
-                <span class="lane-update-time"></span>
+                <div class="lane-details">
+                    <span class="lanes-open"></span>
+                    <span class="lane-update-time"></span>
+                </div>
             </div>
         </div>
     </template>
