@@ -1,12 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Garita Watch</title>
-    <meta name="description"
-        content="Live Mexico border wait times for commercial, passenger, and pedestrian crossings.">
+    <meta name="description" content="Tiempos de espera en la frontera de México en tiempo real.">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -24,17 +23,19 @@
             <section class="controls-section glass-panel">
                 <div class="toolbar-row">
                     <div class="tabs">
-                        <button id="tab-all" class="tab-btn active">All Ports</button>
-                        <button id="tab-fav" class="tab-btn">Favorites <span class="star-icon">★</span></button>
+                        <button id="tab-all" class="tab-btn active" data-i18n="tabAll">Todas las Garitas</button>
+                        <button id="tab-fav" class="tab-btn" data-i18n="tabFav">Favoritas <span
+                                class="star-icon">★</span></button>
                     </div>
                     <div class="meta-badges">
-                        <span id="last-updated" class="badge">Loading...</span>
-                        <span id="refresh-countdown" class="badge outline">Next refresh in 5:00</span>
+                        <span id="last-updated" class="badge">Cargando...</span>
+                        <span id="refresh-countdown" class="badge outline">Próxima actualización en 5:00</span>
                     </div>
                 </div>
                 <div class="toolbar-row">
                     <div class="search-box">
-                        <input type="text" id="search-input" placeholder="Search by port or crossing name...">
+                        <input type="text" id="search-input" data-i18n-placeholder="searchPlaceholder"
+                            placeholder="Buscar por garita o cruce...">
                         <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                             stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="11" cy="11" r="8"></circle>
@@ -42,9 +43,9 @@
                         </svg>
                     </div>
                     <div class="status-filters">
-                        <button class="filter-btn active" data-status="open">Open</button>
-                        <button class="filter-btn" data-status="closed">Closed</button>
-                        <button class="filter-btn" data-status="all">All</button>
+                        <button class="filter-btn active" data-status="open" data-i18n="filterOpen">Abierta</button>
+                        <button class="filter-btn" data-status="closed" data-i18n="filterClosed">Cerrada</button>
+                        <button class="filter-btn" data-status="all" data-i18n="filterAll">Todas</button>
                     </div>
                     <div class="sort-control">
                         <svg class="sort-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -52,18 +53,22 @@
                             <path d="M11 5h10M11 9h7M11 13h4M3 17l3 3 3-3M6 18V4" />
                         </svg>
                         <select id="sort-select">
-                            <option value="alpha">A → Z</option>
-                            <option value="shortest">Shortest Wait</option>
-                            <option value="longest">Longest Wait</option>
-                            <option value="nearest">📍 Nearest</option>
+                            <option value="alpha" data-i18n="sortAlpha">A → Z</option>
+                            <option value="shortest" data-i18n="sortShortest">Menor Espera</option>
+                            <option value="longest" data-i18n="sortLongest">Mayor Espera</option>
+                            <option value="nearest">📍 Más Cerca</option>
                         </select>
+                    </div>
+                    <div class="lang-toggle" id="lang-toggle">
+                        <button class="lang-btn" data-lang="es">ES</button>
+                        <button class="lang-btn" data-lang="en">EN</button>
                     </div>
                 </div>
             </section>
 
             <div id="loading" class="loading-spinner">
                 <div class="spinner"></div>
-                <p>Fetching latest border data...</p>
+                <p data-i18n="loading">Obteniendo datos de la frontera...</p>
             </div>
 
             <div id="ports-grid" class="ports-grid hidden">
@@ -71,8 +76,8 @@
             </div>
 
             <div id="no-results" class="no-results hidden">
-                <h3>No ports found</h3>
-                <p>Try adjusting your search or check your favorites.</p>
+                <h3 data-i18n="noResults">No se encontraron garitas</h3>
+                <p data-i18n="noResultsHint">Intenta ajustar tu búsqueda o revisa tus favoritos.</p>
             </div>
         </main>
     </div>
@@ -123,8 +128,8 @@
 
     <footer class="app-footer">
         <p>© 2026 Garita Watch · <span class="version-badge">v1.0-beta</span></p>
-        <p>Data sourced from U.S. Customs and Border Protection. Not affiliated with or endorsed by any government
-            agency.</p>
+        <p data-i18n="footerDisclaimer">Datos obtenidos de U.S. Customs and Border Protection. Sin afiliación ni
+            respaldo de ninguna agencia gubernamental.</p>
         <p><a href="mailto:contact@garitawatch.com">contact@garitawatch.com</a></p>
     </footer>
 

@@ -194,6 +194,39 @@ body {
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
+.lang-toggle {
+    display: flex;
+    gap: 2px;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 0.2rem;
+    border-radius: 6px;
+    flex-shrink: 0;
+}
+
+.lang-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    padding: 0.3rem 0.5rem;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 0.7rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    letter-spacing: 0.03em;
+}
+
+.lang-btn:hover {
+    color: var(--text-primary);
+}
+
+.lang-btn.active {
+    background: var(--glass-bg);
+    color: var(--text-primary);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
 .tabs {
     display: flex;
     gap: 0.5rem;
@@ -263,10 +296,8 @@ body {
 }
 
 .ports-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-    gap: 1rem;
-    align-items: start;
+    columns: 3 340px;
+    column-gap: 1rem;
 }
 
 /* #7: Fade animation on filter/tab switch */
@@ -294,6 +325,8 @@ body {
     flex-direction: column;
     gap: 0.75rem;
     border-left: 3px solid transparent;
+    break-inside: avoid;
+    margin-bottom: 1rem;
 }
 
 .port-card:hover {
@@ -707,16 +740,16 @@ body {
 
     .status-filters {
         margin-left: 0;
-        flex: 1;
         justify-content: center;
         order: 3;
+        width: 100%;
     }
 
     .port-count {
         width: auto;
         text-align: center;
         order: 4;
-        margin-left: 0;
+        margin-left: auto;
     }
 
     .sort-control {
@@ -728,8 +761,12 @@ body {
         display: block;
     }
 
+    .lang-toggle {
+        order: 6;
+    }
+
     .ports-grid {
-        grid-template-columns: 1fr;
+        columns: 1;
     }
 
     .banner-header {

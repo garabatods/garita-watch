@@ -8,7 +8,144 @@ let currentSort = 'alpha'; // 'alpha', 'shortest', 'longest', 'nearest'
 let userLocation = null; // {lat, lng}
 let nextRefreshTime = 0;
 let refreshInterval, countdownInterval;
+let currentLang = localStorage.getItem('bwtLang') || 'es';
 
+// Translations
+const TRANSLATIONS = {
+    es: {
+        tabAll: 'Todas las Garitas',
+        tabFav: 'Favoritas <span class="star-icon">★</span>',
+        filterOpen: 'Abierta',
+        filterClosed: 'Cerrada',
+        filterAll: 'Todas',
+        searchPlaceholder: 'Buscar por garita o cruce...',
+        sortAlpha: 'A → Z',
+        sortShortest: 'Menor Espera',
+        sortLongest: 'Mayor Espera',
+        sortNearest: '📍 Más Cerca',
+        loading: 'Obteniendo datos de la frontera...',
+        noResults: 'No se encontraron garitas',
+        noResultsHint: 'Intenta ajustar tu búsqueda o revisa tus favoritos.',
+        errorTitle: 'Error al cargar datos',
+        errorMsg: 'Inténtalo más tarde. Asegúrate de que el servidor esté activo.',
+        nextRefresh: 'Próxima actualización en',
+        updated: 'Actualizado:',
+        loadingBadge: 'Cargando...',
+        passengerVehicles: 'Vehículos de Pasajeros',
+        pedestrians: 'Peatones',
+        commercialVehicles: 'Vehículos Comerciales',
+        standard: 'Estándar',
+        readyLane: 'Ready Lane',
+        sentriNexus: 'SENTRI/NEXUS',
+        fast: 'FAST',
+        noLaneData: 'Sin datos de carril disponibles.',
+        pendingUpdate: '⏳ Esperando actualización de datos',
+        lanesOpen: 'carriles abiertos',
+        laneOpen: 'carril abierto',
+        noDelay: 'Sin Demora',
+        portCount: (count, status, fav) => {
+            const s = status !== 'all' ? ` ${status === 'open' ? 'abiertas' : 'cerradas'}` : '';
+            const f = fav ? ' favoritas' : '';
+            return `${count} garita${count !== 1 ? 's' : ''}${s}${f}`;
+        },
+        statusOpen: 'Abierta',
+        statusClosed: 'Cerrada',
+        kmAway: 'km de distancia',
+        mAway: 'm de distancia',
+        footerDisclaimer: 'Datos obtenidos de U.S. Customs and Border Protection. Sin afiliación ni respaldo de ninguna agencia gubernamental.',
+    },
+    en: {
+        tabAll: 'All Ports',
+        tabFav: 'Favorites <span class="star-icon">★</span>',
+        filterOpen: 'Open',
+        filterClosed: 'Closed',
+        filterAll: 'All',
+        searchPlaceholder: 'Search by port or crossing name...',
+        sortAlpha: 'A → Z',
+        sortShortest: 'Shortest Wait',
+        sortLongest: 'Longest Wait',
+        sortNearest: '📍 Nearest',
+        loading: 'Fetching latest border data...',
+        noResults: 'No ports found',
+        noResultsHint: 'Try adjusting your search or check your favorites.',
+        errorTitle: 'Error loading data',
+        errorMsg: 'Please try again later. Make sure the proxy server is running.',
+        nextRefresh: 'Next refresh in',
+        updated: 'Updated:',
+        loadingBadge: 'Loading...',
+        passengerVehicles: 'Passenger Vehicles',
+        pedestrians: 'Pedestrians',
+        commercialVehicles: 'Commercial Vehicles',
+        standard: 'Standard',
+        readyLane: 'Ready Lane',
+        sentriNexus: 'SENTRI/NEXUS',
+        fast: 'FAST',
+        noLaneData: 'No lane data available.',
+        pendingUpdate: '⏳ Awaiting data update',
+        lanesOpen: 'lanes open',
+        laneOpen: 'lane open',
+        noDelay: 'No Delay',
+        portCount: (count, status, fav) => {
+            const s = status !== 'all' ? ` ${status}` : '';
+            const f = fav ? ' favorite' : '';
+            return `${count}${s}${f} port${count !== 1 ? 's' : ''}`;
+        },
+        statusOpen: 'Open',
+        statusClosed: 'Closed',
+        kmAway: 'km away',
+        mAway: 'm away',
+        footerDisclaimer: 'Data sourced from U.S. Customs and Border Protection. Not affiliated with or endorsed by any government agency.',
+    }
+};
+
+function t(key) { return TRANSLATIONS[currentLang][key] || TRANSLATIONS['en'][key] || key; }
+
+function setLanguage(lang) {
+    currentLang = lang;
+    localStorage.setItem('bwtLang', lang);
+    document.documentElement.lang = lang;
+
+    // Update toggle button active state
+    document.querySelectorAll('.lang-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.lang === lang);
+    });
+
+    // Update all data-i18n text elements
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (TRANSLATIONS[lang][key]) el.innerHTML = TRANSLATIONS[lang][key];
+    });
+
+    // Update placeholders
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        const key = el.getAttribute('data-i18n-placeholder');
+        if (TRANSLATIONS[lang][key]) el.placeholder = TRANSLATIONS[lang][key];
+    });
+
+    // Update sort options
+    const sortOpts = document.getElementById('sort-select');
+    if (sortOpts) {
+        sortOpts.querySelectorAll('option[data-i18n]').forEach(opt => {
+            const key = opt.getAttribute('data-i18n');
+            if (TRANSLATIONS[lang][key]) opt.textContent = TRANSLATIONS[lang][key];
+        });
+        // Nearest option (no data-i18n, always emoji)
+        const nearestOpt = sortOpts.querySelector('option[value="nearest"]');
+        if (nearestOpt) nearestOpt.textContent = t('sortNearest');
+    }
+
+    // Update the "Updated:" badge text
+    const lastUpdatedEl = document.getElementById('last-updated');
+    if (lastUpdatedEl && lastUpdatedEl.textContent.includes(':')) {
+        const dateText = lastUpdatedEl.textContent.replace(/^[^:]+:\s*/, '');
+        if (dateText && dateText !== lastUpdatedEl.textContent) {
+            lastUpdatedEl.textContent = `${t('updated')} ${dateText}`;
+        }
+    }
+
+    // Re-render cards with new language
+    if (allPorts.length > 0) render();
+}
 // Static port data: region + coordinates for all Mexican border ports
 // Region keys: ca-bc, az-son, nm-chih, tx-chih, tx-tamps
 const PORT_DATA = {
@@ -92,6 +229,7 @@ async function init() {
         tabAll.classList.remove('active');
     }
     setupEventListeners();
+    setLanguage(currentLang);
     requestUserLocation();
     await fetchData();
     startCountdown();
@@ -132,6 +270,13 @@ function setupEventListeners() {
         }
         render();
     });
+
+    // Language toggle
+    document.querySelectorAll('.lang-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            setLanguage(btn.dataset.lang);
+        });
+    });
 }
 
 function startCountdown() {
@@ -146,7 +291,7 @@ function startCountdown() {
         const remaining = Math.max(0, nextRefreshTime - Date.now());
         const mins = Math.floor(remaining / 60000);
         const secs = Math.floor((remaining % 60000) / 1000);
-        refreshCountdownEl.textContent = `Next refresh in ${mins}:${secs.toString().padStart(2, '0')}`;
+        refreshCountdownEl.textContent = `${t('nextRefresh')} ${mins}:${secs.toString().padStart(2, '0')}`;
     }, 1000);
 
     refreshInterval = setInterval(async () => {
@@ -173,7 +318,7 @@ async function fetchData() {
         loading.classList.add('hidden');
         if (allPorts.length === 0) {
             noResults.classList.remove('hidden');
-            noResults.innerHTML = `<h3>Error loading data</h3><p>Please try again later. Make sure the proxy server is running.</p>`;
+            noResults.innerHTML = `<h3>${t('errorTitle')}</h3><p>${t('errorMsg')}</p>`;
         }
     }
 }
@@ -184,7 +329,7 @@ function parseXML(xmlDoc) {
     const updateTime = xmlDoc.getElementsByTagName('last_updated_time')[0]?.textContent;
 
     if (updateDate && updateTime) {
-        lastUpdatedEl.textContent = `Updated: ${formatDateTime(updateDate, updateTime)}`;
+        lastUpdatedEl.textContent = `${t('updated')} ${formatDateTime(updateDate, updateTime)}`;
     }
 
     const newPorts = [];
@@ -326,7 +471,7 @@ function renderPortCard(cardTemplate, port) {
 
     const statusBadge = clone.querySelector('.port-status');
     const status = port.port_status || 'Unknown';
-    statusBadge.textContent = status;
+    statusBadge.textContent = status.toLowerCase() === 'open' ? t('statusOpen') : t('statusClosed');
     const isOpen = status.toLowerCase() === 'open';
     statusBadge.classList.add(isOpen ? 'open' : 'closed');
     card.classList.add(isOpen ? 'status-open' : 'status-closed');
@@ -336,7 +481,7 @@ function renderPortCard(cardTemplate, port) {
     // Show distance if using nearest sort
     if (currentSort === 'nearest' && userLocation && port.lat && port.lng) {
         const dist = haversine(userLocation.lat, userLocation.lng, port.lat, port.lng);
-        const distText = dist < 1 ? `${(dist * 1000).toFixed(0)}m away` : `${dist.toFixed(0)} km away`;
+        const distText = dist < 1 ? `${(dist * 1000).toFixed(0)}${t('mAway')}` : `${dist.toFixed(0)} ${t('kmAway')}`;
         const distEl = document.createElement('span');
         distEl.className = 'distance-badge';
         distEl.textContent = `📍 ${distText}`;
@@ -352,13 +497,13 @@ function renderPortCard(cardTemplate, port) {
     const lanesContainer = clone.querySelector('.lanes-container');
 
     // Order: Vehicles → Pedestrians → Commercial
-    renderCategory(lanesContainer, 'Passenger Vehicles', port.passenger, 'passenger');
-    renderCategory(lanesContainer, 'Pedestrians', port.pedestrian, 'pedestrian');
-    renderCategory(lanesContainer, 'Commercial Vehicles', port.commercial, 'commercial');
+    renderCategory(lanesContainer, t('passengerVehicles'), port.passenger, 'passenger');
+    renderCategory(lanesContainer, t('pedestrians'), port.pedestrian, 'pedestrian');
+    renderCategory(lanesContainer, t('commercialVehicles'), port.commercial, 'commercial');
 
     // Remove container if empty
     if (lanesContainer.children.length === 0) {
-        lanesContainer.innerHTML = '<p style="color:var(--text-secondary);font-size:0.875rem;">No lane data available.</p>';
+        lanesContainer.innerHTML = `<p style="color:var(--text-secondary);font-size:0.875rem;">${t('noLaneData')}</p>`;
     }
 
     // Dim card if ALL categories are pending/closed (#6)
@@ -400,17 +545,17 @@ function renderCategory(container, title, data, type) {
     let addedType = false;
 
     // Lane order: SENTRI → Ready → Standard → FAST
-    if (isLaneActive(data.nexus_sentri)) addedType |= renderLaneType(typesContainer, 'SENTRI/NEXUS', data.nexus_sentri);
-    if (isLaneActive(data.ready)) addedType |= renderLaneType(typesContainer, 'Ready Lane', data.ready);
-    if (isLaneActive(data.standard)) addedType |= renderLaneType(typesContainer, 'Standard', data.standard);
-    if (isLaneActive(data.fast)) addedType |= renderLaneType(typesContainer, 'FAST', data.fast);
+    if (isLaneActive(data.nexus_sentri)) addedType |= renderLaneType(typesContainer, t('sentriNexus'), data.nexus_sentri);
+    if (isLaneActive(data.ready)) addedType |= renderLaneType(typesContainer, t('readyLane'), data.ready);
+    if (isLaneActive(data.standard)) addedType |= renderLaneType(typesContainer, t('standard'), data.standard);
+    if (isLaneActive(data.fast)) addedType |= renderLaneType(typesContainer, t('fast'), data.fast);
 
     // #1: Collapse all-pending lanes into single message
     if (!addedType) {
         const allPending = ['standard', 'nexus_sentri', 'ready', 'fast']
             .some(k => data[k] && data[k].operational_status === 'Update Pending');
         if (allPending) {
-            typesContainer.innerHTML = `<div class="pending-message">⏳ Awaiting data update</div>`;
+            typesContainer.innerHTML = `<div class="pending-message">${t('pendingUpdate')}</div>`;
         } else {
             return; // truly empty, hide category
         }
@@ -427,23 +572,24 @@ function renderLaneType(container, name, details) {
 
     const badge = tpl.querySelector('.delay-badge');
     const delay = details.delay_minutes;
+    const delayNum = parseInt(delay);
 
-    if (!delay || delay === '') {
+    if (!delay || delay === '' || isNaN(delayNum) || delayNum < 0) {
         badge.textContent = details.operational_status || 'N/A';
         badge.classList.add('na');
     } else {
-        badge.textContent = delay === '0' ? 'No Delay' : `${delay} min`;
-        const mins = parseInt(delay);
+        badge.textContent = delayNum === 0 ? t('noDelay') : `${delayNum} min`;
         // #9: Smoother continuous color gradient
-        badge.style.background = getDelayColor(mins, 0.2);
-        badge.style.color = getDelayColor(mins, 1);
+        badge.style.color = getDelayColor(delayNum, 1);
     }
 
     let detailsText = '';
     if (details.lanes_open && details.lanes_open !== '0') {
-        detailsText = `${details.lanes_open} lane${details.lanes_open !== '1' ? 's' : ''} open`;
+        const lanes = parseInt(details.lanes_open);
+        const lanesLabel = lanes === 1 ? t('laneOpen') : t('lanesOpen');
+        detailsText = `${details.lanes_open} ${lanesLabel}`;
     } else {
-        detailsText = details.operational_status === 'Update Pending' ? 'Update Pending' : 'Lanes info N/A';
+        detailsText = details.operational_status === 'Update Pending' ? t('pendingUpdate') : 'N/A';
     }
 
     tpl.querySelector('.lanes-open').textContent = detailsText;
@@ -521,9 +667,9 @@ function updatePortCount(count) {
         const statusFilters = toolbar.querySelector('.status-filters');
         statusFilters.parentNode.insertBefore(counter, statusFilters);
     }
-    const label = currentFilter === 'fav' ? 'favorite' : '';
-    const statusLabel = currentStatus !== 'all' ? ` ${currentStatus}` : '';
-    counter.textContent = `${count}${statusLabel} ${label} port${count !== 1 ? 's' : ''}`;
+    const label = currentFilter === 'fav';
+    const portCountFn = TRANSLATIONS[currentLang].portCount;
+    counter.textContent = portCountFn(count, currentStatus, label);
 }
 
 // #6: Check if all categories are pending
