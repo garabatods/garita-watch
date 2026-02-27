@@ -638,6 +638,43 @@ body {
     }
 }
 
+/* Footer */
+.app-footer {
+    text-align: center;
+    padding: 2rem 1rem 1.5rem;
+    margin-top: 2rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    opacity: 0.6;
+    line-height: 1.8;
+}
+
+.app-footer p {
+    margin: 0.15rem 0;
+}
+
+.app-footer a {
+    color: var(--accent);
+    text-decoration: none;
+    transition: opacity 0.2s;
+}
+
+.app-footer a:hover {
+    opacity: 0.8;
+    text-decoration: underline;
+}
+
+.version-badge {
+    font-size: 0.65rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    background: rgba(59, 130, 246, 0.15);
+    color: var(--accent);
+    font-weight: 600;
+    letter-spacing: 0.03em;
+}
+
 @media (max-width: 768px) {
     .toolbar-row {
         flex-direction: column;
