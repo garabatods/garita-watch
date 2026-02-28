@@ -317,9 +317,9 @@ function renderLaneType(container, name, details) {
     } else {
         badge.textContent = delay === '0' ? 'No Delay' : `${delay} min`;
         const mins = parseInt(delay);
-        if (mins === 0) badge.classList.add('green');
-        else if (mins > 30) badge.classList.add('red');
-        else badge.classList.add('amber');
+        if (mins <= 30) badge.classList.add('green');
+        else if (mins <= 60) badge.classList.add('amber');
+        else badge.classList.add('red');
     }
 
     let detailsText = '';
