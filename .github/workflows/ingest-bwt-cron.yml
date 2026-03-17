@@ -2,24 +2,40 @@ name: Ingest CBP Wait Times (Supabase)
 
 on:
   schedule:
-    - cron: "*/10 * * * *"
-  workflow_dispatch: {}
+    - cron: "3,13,23,33,43,53 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ingest-bwt-cron
+  cancel-in-progress: false
 
 jobs:
   ingest:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+
+    env:
+      INGEST_URL: https://ymlunuhplrcdemewtyxf.functions.supabase.co/ingest-bwt
+      SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InltbHVudWhwbHJjZGVtZXd0eXhmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5MDUxNzgsImV4cCI6MjA4NzQ4MTE3OH0.53eYzkPUVy26rDfsIhuew34MzBRMSiAi1LwX5ku-PEo
+
     steps:
       - name: Call Supabase Edge Function
-        env:
-          INGEST_URL: ${{ secrets.SUPABASE_INGEST_URL }}
-          INGEST_TOKEN: ${{ secrets.SUPABASE_INGEST_TOKEN }}
         run: |
           set -euo pipefail
-          echo "Calling: $INGEST_URL"
-          curl -sS -X POST "$INGEST_URL" \
-            -H "Content-Type: application/json" \
-            -H "x-ingest-token: $INGEST_TOKEN" \
-            -d "{}" \
-            | head -c 1200
+
+          echo "Calling: ${INGEST_URL}"
+
+          response="$(
+            curl --fail-with-body --silent --show-error \
+              --request POST "${INGEST_URL}" \
+              --header "Content-Type: application/json" \
+              --header "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+              --header "apikey: ${SUPABASE_ANON_KEY}" \
+              --data '{}'
+          )"
+
+          echo "${response}" | head -c 2000
           echo ""
