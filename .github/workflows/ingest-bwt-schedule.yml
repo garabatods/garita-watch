@@ -1,4 +1,4 @@
-name: Ingest CBP Wait Times (Supabase)
+name: Ingest CBP Wait Times (Supabase Schedule)
 
 on:
   schedule:
