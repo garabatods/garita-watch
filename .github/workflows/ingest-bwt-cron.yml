@@ -2,7 +2,7 @@ name: Ingest CBP Wait Times (Supabase)
 
 on:
   schedule:
-    - cron: "3,13,23,33,43,53 * * * *"
+    - cron: "3-53/10 * * * *"
   workflow_dispatch:
 
 permissions:
