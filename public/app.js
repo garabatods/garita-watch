@@ -1166,6 +1166,54 @@ function hidePushToast() {
     }
 }
 
+async function showBrowserPushNotification(detail) {
+    if (Notification.permission !== 'granted') {
+        return;
+    }
+
+    const title = detail.title || 'Garita Watch alert';
+    const body = detail.body || '';
+    const link = detail.link || '/';
+    const tag = detail.data?.alert_id || 'garita-watch-alert';
+
+    if (document.visibilityState === 'visible') {
+        try {
+            new Notification(title, {
+                body,
+                icon: '/favicon.ico',
+                tag,
+            });
+        } catch (error) {
+            console.warn('Unable to display foreground browser notification:', error);
+        }
+        return;
+    }
+
+    try {
+        const registration = await navigator.serviceWorker.ready;
+        await registration.showNotification(title, {
+            badge: '/favicon.ico',
+            body,
+            data: { link },
+            icon: '/favicon.ico',
+            tag,
+        });
+        return;
+    } catch (error) {
+        console.warn('Unable to display service worker notification:', error);
+    }
+
+    try {
+        new Notification(title, {
+            body,
+            icon: '/favicon.ico',
+            tag,
+        });
+    } catch (error) {
+        console.warn('Unable to display browser notification:', error);
+    }
+}
+
 function showPushToast(detail) {
     if (!pushToast || !pushToastTitle || !pushToastBody || !pushToastLink) {
         return;
@@ -1179,27 +1227,21 @@ function showPushToast(detail) {
     pushToastBody.textContent = body;
     pushToastLink.textContent = t('pushToastOpen');
     pushToastLink.href = link;
-    pushToast.hidden = false;
 
     if (pushToastTimer) {
         clearTimeout(pushToastTimer);
     }
 
-    pushToastTimer = setTimeout(() => {
-        hidePushToast();
-    }, 8000);
-
-    if (Notification.permission === 'granted' && document.visibilityState === 'visible') {
-        try {
-            new Notification(title, {
-                body,
-                icon: '/favicon.ico',
-                tag: detail.data?.alert_id || 'garita-watch-alert',
-            });
-        } catch (error) {
-            console.warn('Unable to display foreground browser notification:', error);
-        }
+    if (document.visibilityState === 'visible') {
+        pushToast.hidden = false;
+        pushToastTimer = setTimeout(() => {
+            hidePushToast();
+        }, 8000);
+    } else {
+        pushToast.hidden = true;
     }
+
+    void showBrowserPushNotification(detail);
 }
 
 async function handleAlertFormSubmit(event) {
