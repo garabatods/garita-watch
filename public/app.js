@@ -3,21 +3,18 @@ let allPorts = [];
 let filteredPorts = [];
 let favorites = JSON.parse(localStorage.getItem('bwtFavorites')) || [];
 let currentFilter = 'all'; // 'all' or 'fav'
-let currentStatus = 'open'; // 'all', 'open', 'closed'
 let currentSort = 'alpha'; // 'alpha', 'shortest', 'longest', 'nearest'
 let userLocation = null; // {lat, lng}
-let nextRefreshTime = 0;
-let refreshInterval, countdownInterval;
+let refreshInterval;
 let currentLang = localStorage.getItem('bwtLang') || 'es';
+let lastUpdateDate = '';
+let lastUpdateTime = '';
 
 // Translations
 const TRANSLATIONS = {
     es: {
         tabAll: 'Todas las Garitas',
         tabFav: 'Favoritas <span class="star-icon">★</span>',
-        filterOpen: 'Abierta',
-        filterClosed: 'Cerrada',
-        filterAll: 'Todas',
         searchPlaceholder: 'Buscar por garita o cruce...',
         sortAlpha: 'A → Z',
         sortShortest: 'Menor Espera',
@@ -43,11 +40,6 @@ const TRANSLATIONS = {
         lanesOpen: 'carriles abiertos',
         laneOpen: 'carril abierto',
         noDelay: 'Sin Demora',
-        portCount: (count, status, fav) => {
-            const s = status !== 'all' ? ` ${status === 'open' ? 'abiertas' : 'cerradas'}` : '';
-            const f = fav ? ' favoritas' : '';
-            return `${count} garita${count !== 1 ? 's' : ''}${s}${f}`;
-        },
         statusOpen: 'Abierta',
         statusClosed: 'Cerrada',
         kmAway: 'km de distancia',
@@ -57,9 +49,6 @@ const TRANSLATIONS = {
     en: {
         tabAll: 'All Ports',
         tabFav: 'Favorites <span class="star-icon">★</span>',
-        filterOpen: 'Open',
-        filterClosed: 'Closed',
-        filterAll: 'All',
         searchPlaceholder: 'Search by port or crossing name...',
         sortAlpha: 'A → Z',
         sortShortest: 'Shortest Wait',
@@ -85,11 +74,6 @@ const TRANSLATIONS = {
         lanesOpen: 'lanes open',
         laneOpen: 'lane open',
         noDelay: 'No Delay',
-        portCount: (count, status, fav) => {
-            const s = status !== 'all' ? ` ${status}` : '';
-            const f = fav ? ' favorite' : '';
-            return `${count}${s}${f} port${count !== 1 ? 's' : ''}`;
-        },
         statusOpen: 'Open',
         statusClosed: 'Closed',
         kmAway: 'km away',
@@ -135,13 +119,7 @@ function setLanguage(lang) {
     }
 
     // Update the "Updated:" badge text
-    const lastUpdatedEl = document.getElementById('last-updated');
-    if (lastUpdatedEl && lastUpdatedEl.textContent.includes(':')) {
-        const dateText = lastUpdatedEl.textContent.replace(/^[^:]+:\s*/, '');
-        if (dateText && dateText !== lastUpdatedEl.textContent) {
-            lastUpdatedEl.textContent = `${t('updated')} ${dateText}`;
-        }
-    }
+    updateLastUpdatedBadge();
 
     // Re-render cards with new language
     if (allPorts.length > 0) render();
@@ -217,9 +195,8 @@ searchInput.placeholder = 'Search ports...';
 const tabAll = document.getElementById('tab-all');
 const tabFav = document.getElementById('tab-fav');
 const lastUpdatedEl = document.getElementById('last-updated');
-const refreshCountdownEl = document.getElementById('refresh-countdown');
 const sortSelect = document.getElementById('sort-select');
-const filterBtns = document.querySelectorAll('.filter-btn');
+const controlsSection = document.querySelector('.controls-section');
 
 // Initialize
 async function init() {
@@ -233,6 +210,7 @@ async function init() {
     requestUserLocation();
     await fetchData();
     startCountdown();
+    updateMobileStickyState();
 }
 
 function setupEventListeners() {
@@ -254,15 +232,6 @@ function setupEventListeners() {
         render();
     });
 
-    filterBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            currentStatus = btn.dataset.status;
-            filterBtns.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            render();
-        });
-    });
-
     sortSelect.addEventListener('change', () => {
         currentSort = sortSelect.value;
         if (currentSort === 'nearest' && !userLocation) {
@@ -277,26 +246,22 @@ function setupEventListeners() {
             setLanguage(btn.dataset.lang);
         });
     });
+
+    window.addEventListener('scroll', updateMobileStickyState, { passive: true });
+    window.addEventListener('resize', () => {
+        updateLastUpdatedBadge();
+        updateMobileStickyState();
+    });
 }
 
 function startCountdown() {
     clearInterval(refreshInterval);
-    clearInterval(countdownInterval);
 
     // Refresh every 5 minutes
     const refreshDelay = 5 * 60 * 1000;
-    nextRefreshTime = Date.now() + refreshDelay;
-
-    countdownInterval = setInterval(() => {
-        const remaining = Math.max(0, nextRefreshTime - Date.now());
-        const mins = Math.floor(remaining / 60000);
-        const secs = Math.floor((remaining % 60000) / 1000);
-        refreshCountdownEl.textContent = `${t('nextRefresh')} ${mins}:${secs.toString().padStart(2, '0')}`;
-    }, 1000);
 
     refreshInterval = setInterval(async () => {
         await fetchData();
-        nextRefreshTime = Date.now() + refreshDelay;
     }, refreshDelay);
 }
 
@@ -329,7 +294,9 @@ function parseXML(xmlDoc) {
     const updateTime = xmlDoc.getElementsByTagName('last_updated_time')[0]?.textContent;
 
     if (updateDate && updateTime) {
-        lastUpdatedEl.textContent = `${t('updated')} ${formatDateTime(updateDate, updateTime)}`;
+        lastUpdateDate = updateDate;
+        lastUpdateTime = updateTime;
+        updateLastUpdatedBadge();
     }
 
     const newPorts = [];
@@ -417,10 +384,7 @@ function render() {
         }
         const matchesSearch = matchStr.includes(query);
         const matchesTab = currentFilter === 'all' || favorites.includes(p.port_number);
-        const matchesStatus = currentStatus === 'all' ||
-            (currentStatus === 'open' && p.port_status?.toLowerCase() === 'open') ||
-            (currentStatus === 'closed' && p.port_status?.toLowerCase() !== 'open');
-        return matchesSearch && matchesTab && matchesStatus;
+        return matchesSearch && matchesTab;
     });
 
     // Apply sorting
@@ -444,13 +408,11 @@ function render() {
     if (filteredPorts.length === 0) {
         grid.classList.add('hidden');
         noResults.classList.remove('hidden');
-        updatePortCount(0);
         return;
     }
 
     grid.classList.remove('hidden');
     noResults.classList.add('hidden');
-    updatePortCount(filteredPorts.length);
 
     const cardTemplate = document.getElementById('port-card-template');
 
@@ -599,9 +561,19 @@ function renderLaneType(container, name, details) {
     return true;
 }
 
-// Format date/time from XML into readable format: "Feb 25, 2026 8:05 PM"
+function updateLastUpdatedBadge() {
+    if (!lastUpdatedEl || !lastUpdateDate || !lastUpdateTime) return;
+    lastUpdatedEl.textContent = `${t('updated')} ${formatDateTime(lastUpdateDate, lastUpdateTime)}`;
+}
+
+function updateMobileStickyState() {
+    if (!controlsSection) return;
+    const shouldCompact = window.innerWidth <= 768 && window.scrollY > 56;
+    controlsSection.classList.toggle('mobile-scrolled', shouldCompact);
+}
+
+// Format date/time from XML into readable format, with a shorter mobile variant.
 function formatDateTime(dateStr, timeStr) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     try {
         const parts = dateStr.trim().split(/[-\/]/);
         // Handle both YYYY-M-D and M/D/YYYY formats
@@ -611,6 +583,12 @@ function formatDateTime(dateStr, timeStr) {
         } else {
             month = parseInt(parts[0]); day = parseInt(parts[1]); year = parts[2];
         }
+
+        if (window.innerWidth <= 768) {
+            return `${month.toString().padStart(2, '0')}/${day.toString().padStart(2, '0')}/${year}`;
+        }
+
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         const timeParts = timeStr.trim().split(':');
         let hours = parseInt(timeParts[0]);
         const mins = timeParts[1]?.padStart(2, '0') || '00';
@@ -654,22 +632,6 @@ function toTitleCase(str) {
         // Standard title case
         return lower.charAt(0).toUpperCase() + lower.slice(1);
     }).join('');
-}
-
-// #8: Port count indicator
-function updatePortCount(count) {
-    let counter = document.getElementById('port-count');
-    if (!counter) {
-        counter = document.createElement('span');
-        counter.id = 'port-count';
-        counter.className = 'port-count';
-        const toolbar = document.querySelector('.toolbar-row:last-child');
-        const statusFilters = toolbar.querySelector('.status-filters');
-        statusFilters.parentNode.insertBefore(counter, statusFilters);
-    }
-    const label = currentFilter === 'fav';
-    const portCountFn = TRANSLATIONS[currentLang].portCount;
-    counter.textContent = portCountFn(count, currentStatus, label);
 }
 
 // #6: Check if all categories are pending

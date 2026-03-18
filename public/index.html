@@ -17,27 +17,20 @@
 
 <body>
     <div class="app-container">
-        <header class="banner-header">
-            <picture>
-                <source media="(max-width: 768px)" srcset="banner-mobile.png">
-                <img src="banner.png" alt="Garita Watch - Tiempos de cruce en vivo" class="banner-img">
-            </picture>
-        </header>
-
         <main>
             <section class="controls-section glass-panel">
-                <div class="toolbar-row">
+                <div class="toolbar-row toolbar-main">
+                    <div class="toolbar-logo" aria-label="Garita Watch logo">
+                        <div class="toolbar-logo-mark">
+                            <img src="gw-logo-union.svg" alt="" class="toolbar-logo-union">
+                            <img src="gw-logo-clock.png" alt="" class="toolbar-logo-clock">
+                        </div>
+                    </div>
                     <div class="tabs">
                         <button id="tab-all" class="tab-btn active" data-i18n="tabAll">Todas las Garitas</button>
                         <button id="tab-fav" class="tab-btn" data-i18n="tabFav">Favoritas <span
                                 class="star-icon">★</span></button>
                     </div>
-                    <div class="meta-badges">
-                        <span id="last-updated" class="badge">Cargando...</span>
-                        <span id="refresh-countdown" class="badge outline">Próxima actualización en 5:00</span>
-                    </div>
-                </div>
-                <div class="toolbar-row">
                     <div class="search-box">
                         <input type="text" id="search-input" data-i18n-placeholder="searchPlaceholder"
                             placeholder="Buscar por garita o cruce...">
@@ -47,10 +40,8 @@
                             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                         </svg>
                     </div>
-                    <div class="status-filters">
-                        <button class="filter-btn active" data-status="open" data-i18n="filterOpen">Abierta</button>
-                        <button class="filter-btn" data-status="closed" data-i18n="filterClosed">Cerrada</button>
-                        <button class="filter-btn" data-status="all" data-i18n="filterAll">Todas</button>
+                    <div class="meta-badges">
+                        <span id="last-updated" class="badge">Cargando...</span>
                     </div>
                     <div class="sort-control">
                         <svg class="sort-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"

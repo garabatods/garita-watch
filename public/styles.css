@@ -62,27 +62,13 @@ body {
     box-shadow: var(--card-shadow);
 }
 
-.banner-header {
-    margin-bottom: 2rem;
-    border-radius: 16px;
-    overflow: hidden;
-    box-shadow: var(--card-shadow);
-    max-height: 234px;
-}
-
-.banner-img {
-    width: 100%;
-    height: 234px;
-    object-fit: cover;
-    object-position: center;
-    display: block;
-}
-
 .meta-badges {
     display: flex;
     gap: 0.5rem;
     flex-wrap: wrap;
     align-items: center;
+    justify-content: flex-start;
+    flex-shrink: 0;
 }
 
 
@@ -96,6 +82,7 @@ body {
     color: var(--accent-hover);
     border: 1px solid rgba(59, 130, 246, 0.3);
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
 }
 
 .badge.outline {
@@ -107,6 +94,9 @@ body {
 .controls-section {
     display: flex;
     flex-direction: column;
+    position: sticky;
+    top: 1rem;
+    z-index: 20;
     padding: 1rem;
     margin-bottom: 2rem;
     gap: 0.75rem;
@@ -120,41 +110,9 @@ body {
     flex-wrap: wrap;
 }
 
-.toolbar-row:first-child {
-    padding-bottom: 0.75rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.status-filters {
-    display: flex;
-    gap: 0.25rem;
-    background: rgba(0, 0, 0, 0.2);
-    padding: 0.25rem;
-    border-radius: 8px;
-    margin-left: auto;
-}
-
-.filter-btn {
-    background: transparent;
-    border: none;
-    color: var(--text-secondary);
-    padding: 0.35rem 0.75rem;
-    border-radius: 6px;
-    font-family: inherit;
-    font-size: 0.8rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.filter-btn:hover {
-    color: var(--text-primary);
-}
-
-.filter-btn.active {
-    background: var(--glass-bg);
-    color: var(--text-primary);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+.toolbar-main {
+    justify-content: flex-start;
+    padding-bottom: 0;
 }
 
 .sort-control {
@@ -233,6 +191,7 @@ body {
     background: rgba(0, 0, 0, 0.2);
     padding: 0.25rem;
     border-radius: 8px;
+    flex-shrink: 0;
 }
 
 .tab-btn {
@@ -262,9 +221,10 @@ body {
 
 .search-box {
     position: relative;
-    flex: 1;
-    min-width: 250px;
-    max-width: 400px;
+    flex: 0 1 320px;
+    width: clamp(220px, 26vw, 320px);
+    min-width: 220px;
+    max-width: 320px;
 }
 
 .search-box input {
@@ -558,15 +518,43 @@ body {
 }
 
 /* #8: Port count indicator */
-.port-count {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    white-space: nowrap;
-    padding: 0.2rem 0.6rem;
-    border-radius: 9999px;
-    background: transparent;
-    border: 1px solid var(--glass-border);
-    font-variant-numeric: tabular-nums;
+.toolbar-main .meta-badges {
+    margin-left: auto;
+}
+
+.toolbar-logo {
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    flex-shrink: 0;
+    height: 44px;
+}
+
+.toolbar-logo-mark {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    background: #13233a;
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+.toolbar-logo-union {
+    position: absolute;
+    left: 3px;
+    top: 6px;
+    width: 37px;
+    height: 39px;
+    object-fit: contain;
+}
+
+.toolbar-logo-clock {
+    position: absolute;
+    top: 5px;
+    right: 4px;
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
 }
 
 /* Region section headers */
@@ -709,47 +697,90 @@ body {
 }
 
 @media (max-width: 768px) {
+    .app-container {
+        padding: 1rem 0.75rem 1.5rem;
+    }
+
+    .controls-section {
+        top: 0.5rem;
+        padding: 0.75rem;
+        gap: 0.5rem;
+    }
+
     .toolbar-row {
         flex-direction: column;
         align-items: stretch;
-        gap: 0.75rem;
+        gap: 0.5rem;
     }
 
-    /* First row: tabs centered, badges below */
-    .toolbar-row:first-child {
-        align-items: center;
-    }
-
-    .meta-badges {
-        justify-content: center;
-    }
-
-    /* Second row: search full width, then filters+sort on same line */
-    .toolbar-row:last-child {
+    .toolbar-main {
         flex-direction: row;
         flex-wrap: wrap;
         align-items: center;
         gap: 0.5rem;
     }
 
+    .toolbar-logo {
+        order: 1;
+        height: 40px;
+    }
+
+    .toolbar-logo-mark {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+    }
+
+    .toolbar-logo-union {
+        left: 3px;
+        top: 5px;
+        width: 33px;
+        height: 35px;
+    }
+
+    .toolbar-logo-clock {
+        top: 5px;
+        right: 4px;
+        width: 16px;
+        height: 16px;
+    }
+
+    .tabs {
+        order: 2;
+        flex: 1 1 auto;
+        min-width: 0;
+        gap: 0.25rem;
+        padding: 0.2rem;
+    }
+
+    .tab-btn {
+        flex: 1 1 0;
+        justify-content: center;
+        padding: 0.45rem 0.75rem;
+        font-size: 0.85rem;
+        min-width: 0;
+    }
+
     .search-box {
+        order: 3;
         max-width: none;
         width: 100%;
-        order: 1;
+        flex: 1 1 100%;
+        min-width: 0;
     }
 
-    .status-filters {
-        margin-left: 0;
-        justify-content: center;
-        order: 3;
-        width: 100%;
-    }
-
-    .port-count {
-        width: auto;
-        text-align: center;
-        order: 4;
+    .toolbar-main .meta-badges {
         margin-left: auto;
+        order: 4;
+        flex: 0 1 auto;
+        min-width: auto;
+        width: auto;
+        justify-content: center;
+    }
+
+    .badge {
+        font-size: 0.72rem;
+        padding: 0.25rem 0.5rem;
     }
 
     .sort-control {
@@ -757,24 +788,67 @@ body {
         order: 5;
     }
 
-    .sort-icon {
-        display: block;
-    }
-
     .lang-toggle {
         order: 6;
+        margin-right: auto;
     }
 
     .ports-grid {
         columns: 1;
     }
 
-    .banner-header {
-        max-height: 120px;
+    .controls-section.mobile-scrolled {
+        padding: 0.5rem 0.75rem;
     }
 
-    .banner-img {
-        height: 120px;
-        object-position: center;
+    .controls-section.mobile-scrolled .toolbar-main {
+        flex-wrap: nowrap;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .controls-section.mobile-scrolled .tabs,
+    .controls-section.mobile-scrolled .meta-badges,
+    .controls-section.mobile-scrolled .sort-control,
+    .controls-section.mobile-scrolled .lang-toggle {
+        display: none;
+    }
+
+    .controls-section.mobile-scrolled .toolbar-logo {
+        order: 1;
+        height: 36px;
+    }
+
+    .controls-section.mobile-scrolled .toolbar-logo-mark {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+    }
+
+    .controls-section.mobile-scrolled .toolbar-logo-union {
+        left: 3px;
+        top: 5px;
+        width: 29px;
+        height: 31px;
+    }
+
+    .controls-section.mobile-scrolled .toolbar-logo-clock {
+        top: 4px;
+        right: 3px;
+        width: 14px;
+        height: 14px;
+    }
+
+    .controls-section.mobile-scrolled .search-box {
+        order: 2;
+        flex: 1 1 auto;
+        width: auto;
+        max-width: none;
+        min-width: 0;
+    }
+
+    .controls-section.mobile-scrolled .search-box input {
+        padding-top: 0.65rem;
+        padding-bottom: 0.65rem;
     }
 }
