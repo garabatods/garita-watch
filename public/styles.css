@@ -1134,6 +1134,77 @@ body.modal-open {
     letter-spacing: 0.03em;
 }
 
+.push-toast {
+    position: fixed;
+    right: 1.25rem;
+    bottom: 1.25rem;
+    z-index: 1200;
+    width: min(24rem, calc(100vw - 2rem));
+}
+
+.push-toast[hidden] {
+    display: none;
+}
+
+.push-toast-card {
+    display: grid;
+    gap: 0.85rem;
+    padding: 1rem 1rem 0.95rem;
+    border: 1px solid rgba(96, 165, 250, 0.35);
+    border-radius: 1rem;
+    background: rgba(15, 23, 42, 0.96);
+    box-shadow: 0 24px 60px rgba(2, 6, 23, 0.45);
+    backdrop-filter: blur(18px);
+}
+
+.push-toast-title {
+    margin: 0 0 0.3rem;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #f8fafc;
+}
+
+.push-toast-body {
+    margin: 0;
+    color: #cbd5e1;
+    font-size: 0.92rem;
+    line-height: 1.45;
+}
+
+.push-toast-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.push-toast-link,
+.push-toast-close {
+    border-radius: 999px;
+    font-size: 0.88rem;
+}
+
+.push-toast-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.25rem;
+    padding: 0.55rem 0.9rem;
+    color: #dbeafe;
+    text-decoration: none;
+    background: rgba(37, 99, 235, 0.2);
+    border: 1px solid rgba(96, 165, 250, 0.28);
+}
+
+.push-toast-close {
+    width: 2.25rem;
+    height: 2.25rem;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+    color: #cbd5e1;
+    cursor: pointer;
+}
+
 @media (max-width: 768px) {
     html {
         -webkit-text-size-adjust: 100%;
@@ -1237,6 +1308,12 @@ body.modal-open {
 
     .ports-grid {
         columns: 1;
+    }
+
+    .push-toast {
+        right: 1rem;
+        bottom: 1rem;
+        width: calc(100vw - 2rem);
     }
 
     .controls-section.mobile-scrolled {

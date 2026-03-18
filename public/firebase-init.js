@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
 import { getAnalytics, isSupported as isAnalyticsSupported } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-analytics.js";
-import { deleteToken, getMessaging, getToken, isSupported as isMessagingSupported } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-messaging.js";
+import { deleteToken, getMessaging, getToken, isSupported as isMessagingSupported, onMessage } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-messaging.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyASTcnJax2Q5Gxj-0TwvillDNtJvWA6PYE",
@@ -17,6 +17,7 @@ const webPushVapidKey = "BGgrIzaQEM4jRHJM6AtAzZ2iXMVBmN0tj7FKIj_PHx5augZyfB8HXm3
 const app = initializeApp(firebaseConfig);
 let analytics = null;
 let messaging = null;
+let foregroundMessageBound = false;
 
 isAnalyticsSupported()
     .then((supported) => {
@@ -51,7 +52,31 @@ async function ensureMessaging() {
         messaging = getMessaging(app);
     }
 
+    bindForegroundMessages();
+
     return messaging;
+}
+
+function bindForegroundMessages() {
+    if (!messaging || foregroundMessageBound) {
+        return;
+    }
+
+    onMessage(messaging, (payload) => {
+        const notification = payload.notification || {};
+        const data = payload.data || {};
+
+        window.dispatchEvent(new CustomEvent("garitaWatchPushMessage", {
+            detail: {
+                body: notification.body || "A wait-time alert was triggered.",
+                data,
+                link: data.link || "/",
+                title: notification.title || "Garita Watch alert",
+            },
+        }));
+    });
+
+    foregroundMessageBound = true;
 }
 
 function getSupabaseContext() {
@@ -228,6 +253,12 @@ window.garitaWatchPush = {
     requestAndRegisterPush,
     syncPushState,
 };
+
+if (hasBrowserPushSupport() && hasConfiguredVapidKey()) {
+    ensureMessaging().catch((error) => {
+        console.warn("Foreground Firebase Messaging initialization skipped:", error);
+    });
+}
 
 window.dispatchEvent(new CustomEvent("garitaWatchPushReady", {
     detail: {

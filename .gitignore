@@ -1,3 +1,4 @@
 node_modules/
 .env
 supabase/.temp/
+firebase-service-account.json

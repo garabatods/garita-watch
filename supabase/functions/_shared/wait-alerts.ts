@@ -41,6 +41,7 @@ export type NotificationSender = (
 
 export type AlertEvaluationSummary = {
   failedAlerts: number;
+  failedReasons: string[];
   scannedAlerts: number;
   matchedAlerts: number;
   insertedDeliveries: number;
@@ -115,7 +116,7 @@ export async function evaluateAndTriggerAlerts({
 
   const portNumbers = [...new Set(snapshots.map((snapshot) => snapshot.port_number).filter(Boolean))];
   if (portNumbers.length === 0) {
-    return { failedAlerts: 0, scannedAlerts: 0, matchedAlerts: 0, insertedDeliveries: 0, updatedAlerts: 0 };
+    return { failedAlerts: 0, failedReasons: [], scannedAlerts: 0, matchedAlerts: 0, insertedDeliveries: 0, updatedAlerts: 0 };
   }
 
   const { data: alerts, error: alertsError } = await supabaseAdmin
@@ -131,7 +132,7 @@ export async function evaluateAndTriggerAlerts({
 
   const alertRows = (alerts || []) as WaitTimeAlert[];
   if (alertRows.length === 0) {
-    return { failedAlerts: 0, scannedAlerts: 0, matchedAlerts: 0, insertedDeliveries: 0, updatedAlerts: 0 };
+    return { failedAlerts: 0, failedReasons: [], scannedAlerts: 0, matchedAlerts: 0, insertedDeliveries: 0, updatedAlerts: 0 };
   }
 
   const candidateAlerts = alertRows
@@ -147,6 +148,7 @@ export async function evaluateAndTriggerAlerts({
     return {
       scannedAlerts: alertRows.length,
       failedAlerts: 0,
+      failedReasons: [],
       matchedAlerts: 0,
       insertedDeliveries: 0,
       updatedAlerts: 0,
@@ -170,6 +172,7 @@ export async function evaluateAndTriggerAlerts({
     return {
       scannedAlerts: alertRows.length,
       failedAlerts: 0,
+      failedReasons: [],
       matchedAlerts: candidateAlerts.length,
       insertedDeliveries: 0,
       updatedAlerts: 0,
@@ -178,6 +181,7 @@ export async function evaluateAndTriggerAlerts({
 
   const deliveries: DeliveryInsert[] = [];
   let failedAlerts = 0;
+  const failedReasons = new Set<string>();
 
   for (const { alert, snapshot } of freshMatches) {
     let status: DeliveryStatus = "matched";
@@ -198,6 +202,9 @@ export async function evaluateAndTriggerAlerts({
 
     if (status === "failed") {
       failedAlerts += 1;
+      if (providerError) {
+        failedReasons.add(providerError);
+      }
       continue;
     }
 
@@ -231,6 +238,7 @@ export async function evaluateAndTriggerAlerts({
     return {
       scannedAlerts: alertRows.length,
       failedAlerts,
+      failedReasons: [...failedReasons],
       matchedAlerts: candidateAlerts.length,
       insertedDeliveries: 0,
       updatedAlerts: 0,
@@ -255,6 +263,7 @@ export async function evaluateAndTriggerAlerts({
   return {
     scannedAlerts: alertRows.length,
     failedAlerts,
+    failedReasons: [...failedReasons],
     matchedAlerts: candidateAlerts.length,
     insertedDeliveries: insertedAlertIds.length,
     updatedAlerts: (updatedAlerts || []).length,

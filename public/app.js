@@ -16,6 +16,7 @@ let currentPortAlerts = [];
 let alertLoadCounter = 0;
 let pushReady = false;
 let pushState = null;
+let pushToastTimer = null;
 
 // Translations
 const TRANSLATIONS = {
@@ -90,6 +91,7 @@ const TRANSLATIONS = {
         pushDisableSuccess: 'Notificaciones desactivadas para este navegador.',
         pushDisableError: 'No se pudieron desactivar las notificaciones.',
         pushSchemaMissing: 'Falta crear la tabla de suscripciones push en Supabase.',
+        pushToastOpen: 'Abrir',
         travelPassenger: 'Vehículos de Pasajeros',
         travelPedestrian: 'Peatones',
         travelCommercial: 'Vehículos Comerciales',
@@ -165,6 +167,7 @@ const TRANSLATIONS = {
         pushDisableSuccess: 'Notifications disabled for this browser.',
         pushDisableError: 'Could not disable notifications.',
         pushSchemaMissing: 'The push subscriptions table has not been created in Supabase yet.',
+        pushToastOpen: 'Open',
         travelPassenger: 'Passenger Vehicles',
         travelPedestrian: 'Pedestrians',
         travelCommercial: 'Commercial Vehicles',
@@ -276,6 +279,10 @@ function initializePushNotifications() {
         setPushStatus(t('pushLoading'));
         updatePushControls();
     }
+
+    window.addEventListener('garitaWatchPushMessage', (event) => {
+        showPushToast(event.detail || {});
+    });
 }
 
 function setPushStatus(message, kind = 'muted') {
@@ -556,6 +563,11 @@ const portAlertFormStatus = document.getElementById('port-alert-form-status');
 const portAlertsList = document.getElementById('port-alerts-list');
 const pushPermissionButton = document.getElementById('push-permission-button');
 const pushPermissionStatus = document.getElementById('push-permission-status');
+const pushToast = document.getElementById('push-toast');
+const pushToastTitle = document.getElementById('push-toast-title');
+const pushToastBody = document.getElementById('push-toast-body');
+const pushToastLink = document.getElementById('push-toast-link');
+const pushToastClose = document.getElementById('push-toast-close');
 let activeDetailPort = null;
 let lastFocusedCard = null;
 
@@ -645,6 +657,9 @@ function setupEventListeners() {
     }
     if (pushPermissionButton) {
         pushPermissionButton.addEventListener('click', handlePushPermissionClick);
+    }
+    if (pushToastClose) {
+        pushToastClose.addEventListener('click', hidePushToast);
     }
 
     document.addEventListener('keydown', (event) => {
@@ -1138,6 +1153,52 @@ async function handlePushPermissionClick() {
     } finally {
         pushPermissionButton.disabled = false;
         await refreshPushState();
+    }
+}
+
+function hidePushToast() {
+    if (!pushToast) return;
+
+    pushToast.hidden = true;
+    if (pushToastTimer) {
+        clearTimeout(pushToastTimer);
+        pushToastTimer = null;
+    }
+}
+
+function showPushToast(detail) {
+    if (!pushToast || !pushToastTitle || !pushToastBody || !pushToastLink) {
+        return;
+    }
+
+    const title = detail.title || 'Garita Watch alert';
+    const body = detail.body || '';
+    const link = detail.link || '/';
+
+    pushToastTitle.textContent = title;
+    pushToastBody.textContent = body;
+    pushToastLink.textContent = t('pushToastOpen');
+    pushToastLink.href = link;
+    pushToast.hidden = false;
+
+    if (pushToastTimer) {
+        clearTimeout(pushToastTimer);
+    }
+
+    pushToastTimer = setTimeout(() => {
+        hidePushToast();
+    }, 8000);
+
+    if (Notification.permission === 'granted' && document.visibilityState === 'visible') {
+        try {
+            new Notification(title, {
+                body,
+                icon: '/favicon.ico',
+                tag: detail.data?.alert_id || 'garita-watch-alert',
+            });
+        } catch (error) {
+            console.warn('Unable to display foreground browser notification:', error);
+        }
     }
 }
 

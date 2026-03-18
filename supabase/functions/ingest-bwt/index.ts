@@ -40,6 +40,7 @@ type Summary = {
   matched: number;
   alerts: {
     failedAlerts: number;
+    failedReasons: string[];
     insertedDeliveries: number;
     matchedAlerts: number;
     scannedAlerts: number;
@@ -247,6 +248,7 @@ Deno.serve(async (req) => {
           insertedDeliveries: 0,
           updatedAlerts: 0,
           failedAlerts: 0,
+          failedReasons: [],
         },
         skipped: {
           non_mexican_border: 0,
@@ -304,6 +306,7 @@ async function fetchAndParseFeed(): Promise<{
       insertedDeliveries: 0,
       updatedAlerts: 0,
       failedAlerts: 0,
+      failedReasons: [],
     },
     skipped: {
       duplicate_capture_minute: 0,
