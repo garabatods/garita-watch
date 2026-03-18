@@ -235,6 +235,7 @@ body {
     border-radius: 8px;
     color: var(--text-primary);
     font-family: inherit;
+    font-size: 16px;
     transition: all 0.3s ease;
 }
 
@@ -697,6 +698,10 @@ body {
 }
 
 @media (max-width: 768px) {
+    html {
+        -webkit-text-size-adjust: 100%;
+    }
+
     .app-container {
         padding: 1rem 0.75rem 1.5rem;
     }
