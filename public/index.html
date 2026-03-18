@@ -33,7 +33,7 @@
                     </div>
                     <div class="search-box">
                         <input type="text" id="search-input" data-i18n-placeholder="searchPlaceholder"
-                            placeholder="Buscar por garita o cruce...">
+                            placeholder="Buscar por garita, cruce o ciudad...">
                         <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                             stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="11" cy="11" r="8"></circle>
@@ -76,6 +76,35 @@
                 <p data-i18n="noResultsHint">Intenta ajustar tu búsqueda o revisa tus favoritos.</p>
             </div>
         </main>
+    </div>
+
+    <div id="port-detail-modal" class="port-detail-modal hidden" aria-hidden="true">
+        <div class="port-detail-backdrop" data-close-modal="true"></div>
+        <div class="port-detail-panel glass-panel" role="dialog" aria-modal="true" aria-labelledby="port-detail-title">
+            <div class="port-detail-mobile-bar">
+                <button id="port-detail-back" class="port-detail-back" type="button" aria-label="Go back">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M15 18l-6-6 6-6"></path>
+                    </svg>
+                </button>
+                <span id="port-detail-mobile-title" class="port-detail-mobile-title"></span>
+            </div>
+            <button id="port-detail-close" class="port-detail-close" type="button" aria-label="Close details">
+                <span aria-hidden="true">×</span>
+            </button>
+            <div class="port-detail-header">
+                <div class="port-detail-title-group">
+                    <h2 id="port-detail-title" class="port-detail-title"></h2>
+                    <p id="port-detail-crossing" class="port-detail-crossing hidden"></p>
+                </div>
+                <div class="port-detail-meta">
+                    <span id="port-detail-status" class="status-badge"></span>
+                    <span id="port-detail-hours" class="badge outline"></span>
+                </div>
+            </div>
+            <div id="port-detail-summary" class="port-detail-summary"></div>
+            <div id="port-detail-lanes" class="lanes-container port-detail-lanes"></div>
+        </div>
     </div>
 
     <template id="port-card-template">

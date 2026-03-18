@@ -15,7 +15,7 @@ const TRANSLATIONS = {
     es: {
         tabAll: 'Todas las Garitas',
         tabFav: 'Favoritas <span class="star-icon">★</span>',
-        searchPlaceholder: 'Buscar por garita o cruce...',
+        searchPlaceholder: 'Buscar por garita, cruce o ciudad...',
         sortAlpha: 'A → Z',
         sortShortest: 'Menor Espera',
         sortLongest: 'Mayor Espera',
@@ -42,6 +42,8 @@ const TRANSLATIONS = {
         noDelay: 'Sin Demora',
         statusOpen: 'Abierta',
         statusClosed: 'Cerrada',
+        activeLane: 'carril activo',
+        activeLanes: 'carriles activos',
         kmAway: 'km de distancia',
         mAway: 'm de distancia',
         footerDisclaimer: 'Datos obtenidos de U.S. Customs and Border Protection. Sin afiliación ni respaldo de ninguna agencia gubernamental.',
@@ -49,7 +51,7 @@ const TRANSLATIONS = {
     en: {
         tabAll: 'All Ports',
         tabFav: 'Favorites <span class="star-icon">★</span>',
-        searchPlaceholder: 'Search by port or crossing name...',
+        searchPlaceholder: 'Search by port, crossing, or city...',
         sortAlpha: 'A → Z',
         sortShortest: 'Shortest Wait',
         sortLongest: 'Longest Wait',
@@ -76,6 +78,8 @@ const TRANSLATIONS = {
         noDelay: 'No Delay',
         statusOpen: 'Open',
         statusClosed: 'Closed',
+        activeLane: 'active lane',
+        activeLanes: 'active lanes',
         kmAway: 'km away',
         mAway: 'm away',
         footerDisclaimer: 'Data sourced from U.S. Customs and Border Protection. Not affiliated with or endorsed by any government agency.',
@@ -123,6 +127,9 @@ function setLanguage(lang) {
 
     // Re-render cards with new language
     if (allPorts.length > 0) render();
+    if (activeDetailPort) {
+        openPortDetail(activeDetailPort, lastFocusedCard);
+    }
 }
 // Static port data: region + coordinates for all Mexican border ports
 // Region keys: ca-bc, az-son, nm-chih, tx-chih, tx-tamps
@@ -131,14 +138,14 @@ const PORT_DATA = {
     '250201': { region: 'ca-bc', lat: 32.7194, lng: -114.6997 }, // Andrade
     '250301': { region: 'ca-bc', lat: 32.6781, lng: -115.4988 }, // Calexico East
     '250302': { region: 'ca-bc', lat: 32.6743, lng: -115.4992 }, // Calexico West
-    '250101': { region: 'ca-bc', lat: 32.5421, lng: -117.0293 }, // Otay Mesa
-    '250102': { region: 'ca-bc', lat: 32.5368, lng: -117.0283 }, // Otay Mesa East
-    '250103': { region: 'ca-bc', lat: 32.5367, lng: -117.0272 }, // Otay Mesa Cargo
-    '250104': { region: 'ca-bc', lat: 32.5413, lng: -116.9769 }, // Cross Border Express
-    '250401': { region: 'ca-bc', lat: 32.5493, lng: -116.6289 }, // Tecate
-    '250501': { region: 'ca-bc', lat: 32.5412, lng: -117.0322 }, // San Ysidro
-    '250502': { region: 'ca-bc', lat: 32.5425, lng: -117.0346 }, // San Ysidro PedWest
-    '250503': { region: 'ca-bc', lat: 32.5412, lng: -117.0322 }, // San Ysidro CBX
+    '250601': { region: 'ca-bc', lat: 32.5503, lng: -116.9386 }, // Otay Mesa Passenger
+    '250602': { region: 'ca-bc', lat: 32.5503, lng: -116.9386 }, // Otay Mesa Commercial
+    '250608': { region: 'ca-bc', lat: 32.5503, lng: -116.9386 }, // Otay Mesa Port of Entry
+    '250609': { region: 'ca-bc', lat: 32.5503, lng: -116.9386 }, // Otay Mesa
+    '250401': { region: 'ca-bc', lat: 32.5412, lng: -117.0322 }, // San Ysidro
+    '250407': { region: 'ca-bc', lat: 32.5425, lng: -117.0346 }, // San Ysidro PedWest
+    '250409': { region: 'ca-bc', lat: 32.5413, lng: -116.9769 }, // San Ysidro Cross Border Express
+    '250501': { region: 'ca-bc', lat: 32.5493, lng: -116.6289 }, // Tecate
     // Arizona – Sonora
     '260101': { region: 'az-son', lat: 31.3338, lng: -109.5454 }, // Douglas
     '260201': { region: 'az-son', lat: 31.9505, lng: -112.8061 }, // Lukeville
@@ -186,17 +193,151 @@ const PORT_DATA = {
 
 const REGION_ORDER = ['ca-bc', 'az-son', 'nm-chih', 'tx-chih', 'tx-tamps'];
 
+const CITY_INDEX = [
+    {
+        name: 'Tijuana',
+        aliases: ['tijuana', 'tj'],
+        lat: 32.5149,
+        lng: -117.0382,
+        radiusKm: 30
+    },
+    {
+        name: 'Mexicali',
+        aliases: ['mexicali'],
+        lat: 32.6245,
+        lng: -115.4523,
+        radiusKm: 35
+    },
+    {
+        name: 'Tecate',
+        aliases: ['tecate'],
+        lat: 32.5667,
+        lng: -116.6333,
+        radiusKm: 25
+    },
+    {
+        name: 'Nogales',
+        aliases: ['nogales'],
+        lat: 31.3086,
+        lng: -110.9458,
+        radiusKm: 25
+    },
+    {
+        name: 'San Luis Rio Colorado',
+        aliases: ['san luis rio colorado', 'san luis'],
+        lat: 32.4561,
+        lng: -114.7719,
+        radiusKm: 25
+    },
+    {
+        name: 'Agua Prieta',
+        aliases: ['agua prieta', 'douglas'],
+        lat: 31.3239,
+        lng: -109.5489,
+        radiusKm: 25
+    },
+    {
+        name: 'Ciudad Juarez',
+        aliases: ['ciudad juarez', 'juarez', 'cd juarez', 'el paso'],
+        lat: 31.6904,
+        lng: -106.4245,
+        radiusKm: 60
+    },
+    {
+        name: 'Puerto Palomas',
+        aliases: ['puerto palomas', 'palomas', 'columbus'],
+        lat: 31.7833,
+        lng: -107.6333,
+        radiusKm: 25
+    },
+    {
+        name: 'San Jeronimo',
+        aliases: ['san jeronimo', 'santa teresa'],
+        lat: 31.7830,
+        lng: -106.6735,
+        radiusKm: 25
+    },
+    {
+        name: 'Piedras Negras',
+        aliases: ['piedras negras', 'eagle pass'],
+        lat: 28.7000,
+        lng: -100.5231,
+        radiusKm: 25
+    },
+    {
+        name: 'Acuña',
+        aliases: ['acuna', 'acuña', 'del rio', 'ciudad acuna', 'ciudad acuña'],
+        lat: 29.3232,
+        lng: -100.9513,
+        radiusKm: 25
+    },
+    {
+        name: 'Nuevo Laredo',
+        aliases: ['nuevo laredo', 'laredo'],
+        lat: 27.4779,
+        lng: -99.5496,
+        radiusKm: 30
+    },
+    {
+        name: 'Reynosa',
+        aliases: ['reynosa', 'hidalgo', 'pharr'],
+        lat: 26.0928,
+        lng: -98.2770,
+        radiusKm: 30
+    },
+    {
+        name: 'Rio Bravo',
+        aliases: ['rio bravo', 'progreso'],
+        lat: 26.0497,
+        lng: -97.9510,
+        radiusKm: 25
+    },
+    {
+        name: 'Matamoros',
+        aliases: ['matamoros', 'brownsville'],
+        lat: 25.8690,
+        lng: -97.5027,
+        radiusKm: 35
+    },
+    {
+        name: 'Miguel Aleman',
+        aliases: ['miguel aleman', 'miguel alemán', 'roma'],
+        lat: 26.3988,
+        lng: -99.0267,
+        radiusKm: 25
+    },
+    {
+        name: 'Camargo',
+        aliases: ['camargo', 'rio grande city'],
+        lat: 26.3144,
+        lng: -98.8353,
+        radiusKm: 25
+    }
+];
+
 // DOM Elements
 const grid = document.getElementById('ports-grid');
 const loading = document.getElementById('loading');
 const noResults = document.getElementById('no-results');
 const searchInput = document.getElementById('search-input');
-searchInput.placeholder = 'Search ports...';
+searchInput.placeholder = 'Search by port, crossing, or city...';
 const tabAll = document.getElementById('tab-all');
 const tabFav = document.getElementById('tab-fav');
 const lastUpdatedEl = document.getElementById('last-updated');
 const sortSelect = document.getElementById('sort-select');
 const controlsSection = document.querySelector('.controls-section');
+const portDetailModal = document.getElementById('port-detail-modal');
+const portDetailCloseBtn = document.getElementById('port-detail-close');
+const portDetailBackBtn = document.getElementById('port-detail-back');
+const portDetailTitle = document.getElementById('port-detail-title');
+const portDetailMobileTitle = document.getElementById('port-detail-mobile-title');
+const portDetailCrossing = document.getElementById('port-detail-crossing');
+const portDetailStatus = document.getElementById('port-detail-status');
+const portDetailHours = document.getElementById('port-detail-hours');
+const portDetailSummary = document.getElementById('port-detail-summary');
+const portDetailLanes = document.getElementById('port-detail-lanes');
+let activeDetailPort = null;
+let lastFocusedCard = null;
 
 // Initialize
 async function init() {
@@ -251,6 +392,27 @@ function setupEventListeners() {
     window.addEventListener('resize', () => {
         updateLastUpdatedBadge();
         updateMobileStickyState();
+    });
+
+    if (portDetailCloseBtn) {
+        portDetailCloseBtn.addEventListener('click', closePortDetail);
+    }
+    if (portDetailBackBtn) {
+        portDetailBackBtn.addEventListener('click', closePortDetail);
+    }
+
+    if (portDetailModal) {
+        portDetailModal.addEventListener('click', (event) => {
+            if (event.target instanceof HTMLElement && event.target.dataset.closeModal === 'true') {
+                closePortDetail();
+            }
+        });
+    }
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && activeDetailPort) {
+            closePortDetail();
+        }
     });
 }
 
@@ -375,16 +537,13 @@ function toggleFavorite(portNum, btn) {
 }
 
 function render() {
-    const query = searchInput.value.toLowerCase().trim();
+    const query = normalizeSearchValue(searchInput.value);
+    const cityMatch = findMatchingCity(query);
 
     filteredPorts = allPorts.filter(p => {
-        let matchStr = p.port_name.toLowerCase();
-        if (p.crossing_name && p.crossing_name !== 'N/A') {
-            matchStr += ' ' + p.crossing_name.toLowerCase();
-        }
-        const matchesSearch = matchStr.includes(query);
+        const matchesSearch = matchesPortSearch(p, query, cityMatch);
         const matchesTab = currentFilter === 'all' || favorites.includes(p.port_number);
-        return matchesSearch && matchesTab;
+        return matchesSearch && matchesTab && !isCardAllUnavailable(p);
     });
 
     // Apply sorting
@@ -398,6 +557,8 @@ function render() {
         filteredPorts.sort((a, b) => getPortWaitTime(a) - getPortWaitTime(b));
     } else if (currentSort === 'longest') {
         filteredPorts.sort((a, b) => getPortWaitTime(b) - getPortWaitTime(a));
+    } else if (cityMatch) {
+        filteredPorts.sort((a, b) => getCityDistance(a, cityMatch) - getCityDistance(b, cityMatch));
     } else {
         // alpha sort, but within regions when showing all regions
         filteredPorts.sort((a, b) => a.port_name.localeCompare(b.port_name));
@@ -422,6 +583,8 @@ function render() {
 function renderPortCard(cardTemplate, port) {
     const clone = cardTemplate.content.cloneNode(true);
     const card = clone.querySelector('.port-card');
+    card.setAttribute('role', 'button');
+    card.setAttribute('tabindex', '0');
 
     // Title Case conversion for ALL CAPS names
     const portName = toTitleCase(port.port_name);
@@ -454,19 +617,23 @@ function renderPortCard(cardTemplate, port) {
     if (favorites.includes(port.port_number)) {
         favBtn.classList.add('active');
     }
-    favBtn.addEventListener('click', () => toggleFavorite(port.port_number, favBtn));
+    favBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        toggleFavorite(port.port_number, favBtn);
+    });
+    favBtn.addEventListener('keydown', (event) => {
+        event.stopPropagation();
+    });
 
-    const lanesContainer = clone.querySelector('.lanes-container');
+    card.addEventListener('click', () => openPortDetail(port, card));
+    card.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            openPortDetail(port, card);
+        }
+    });
 
-    // Order: Vehicles → Pedestrians → Commercial
-    renderCategory(lanesContainer, t('passengerVehicles'), port.passenger, 'passenger');
-    renderCategory(lanesContainer, t('pedestrians'), port.pedestrian, 'pedestrian');
-    renderCategory(lanesContainer, t('commercialVehicles'), port.commercial, 'commercial');
-
-    // Remove container if empty
-    if (lanesContainer.children.length === 0) {
-        lanesContainer.innerHTML = `<p style="color:var(--text-secondary);font-size:0.875rem;">${t('noLaneData')}</p>`;
-    }
+    populateLanesContainer(clone.querySelector('.lanes-container'), port);
 
     // Dim card if ALL categories are pending/closed (#6)
     const allPending = isCardFullyPending(port);
@@ -561,9 +728,143 @@ function renderLaneType(container, name, details) {
     return true;
 }
 
+function populateLanesContainer(container, port) {
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    // Order: Vehicles -> Pedestrians -> Commercial
+    renderCategory(container, t('passengerVehicles'), port.passenger, 'passenger');
+    renderCategory(container, t('pedestrians'), port.pedestrian, 'pedestrian');
+    renderCategory(container, t('commercialVehicles'), port.commercial, 'commercial');
+
+    if (container.children.length === 0) {
+        container.innerHTML = `<p style="color:var(--text-secondary);font-size:0.875rem;">${t('noLaneData')}</p>`;
+    }
+}
+
 function updateLastUpdatedBadge() {
     if (!lastUpdatedEl || !lastUpdateDate || !lastUpdateTime) return;
     lastUpdatedEl.textContent = `${t('updated')} ${formatDateTime(lastUpdateDate, lastUpdateTime)}`;
+}
+
+function openPortDetail(port, cardElement) {
+    if (!portDetailModal) return;
+
+    activeDetailPort = port;
+    lastFocusedCard = cardElement || document.activeElement;
+
+    const portName = toTitleCase(port.port_name);
+    const crossingName = port.crossing_name && port.crossing_name.trim() !== '' && port.crossing_name !== 'N/A'
+        ? toTitleCase(port.crossing_name)
+        : '';
+    const status = (port.port_status || 'Closed').toLowerCase();
+    const isOpen = status === 'open';
+
+    portDetailTitle.textContent = portName;
+    if (portDetailMobileTitle) {
+        portDetailMobileTitle.textContent = portName;
+    }
+    portDetailCrossing.textContent = crossingName;
+    portDetailCrossing.classList.toggle('hidden', !crossingName);
+    portDetailStatus.textContent = isOpen ? t('statusOpen') : t('statusClosed');
+    portDetailStatus.classList.toggle('open', isOpen);
+    portDetailStatus.classList.toggle('closed', !isOpen);
+    portDetailHours.textContent = port.hours || 'N/A';
+
+    renderPortDetailSummary(port);
+    populateLanesContainer(portDetailLanes, port);
+
+    portDetailModal.classList.remove('hidden');
+    portDetailModal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('modal-open');
+    if (window.innerWidth <= 768) {
+        document.body.classList.add('mobile-detail-open');
+        portDetailBackBtn?.focus();
+    } else {
+        document.body.classList.remove('mobile-detail-open');
+        portDetailCloseBtn?.focus();
+    }
+}
+
+function closePortDetail() {
+    if (!portDetailModal) return;
+
+    activeDetailPort = null;
+    portDetailModal.classList.add('hidden');
+    portDetailModal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('modal-open');
+    document.body.classList.remove('mobile-detail-open');
+    if (lastFocusedCard && typeof lastFocusedCard.focus === 'function') {
+        lastFocusedCard.focus();
+    }
+}
+
+function renderPortDetailSummary(port) {
+    if (!portDetailSummary) return;
+
+    const summaryBadges = [];
+
+    const activeLaneCount = getPortLanes(port).filter(lane => !isLaneUnavailableForCard(lane)).length;
+    if (activeLaneCount > 0) {
+        const laneLabel = activeLaneCount === 1 ? t('activeLane') : t('activeLanes');
+        summaryBadges.push(`${activeLaneCount} ${laneLabel}`);
+    }
+
+    if (summaryBadges.length === 0) {
+        portDetailSummary.innerHTML = '';
+        portDetailSummary.classList.add('hidden');
+        return;
+    }
+
+    portDetailSummary.classList.remove('hidden');
+    portDetailSummary.innerHTML = summaryBadges
+        .map(text => `<span class="badge outline">${text}</span>`)
+        .join('');
+}
+
+function matchesPortSearch(port, query, cityMatch) {
+    if (!query) return true;
+
+    let matchStr = normalizeSearchValue(port.port_name);
+    if (port.crossing_name && port.crossing_name !== 'N/A') {
+        matchStr += ` ${normalizeSearchValue(port.crossing_name)}`;
+    }
+
+    if (matchStr.includes(query)) return true;
+
+    if (!cityMatch || !port.lat || !port.lng) return false;
+
+    return getCityDistance(port, cityMatch) <= cityMatch.radiusKm;
+}
+
+function findMatchingCity(query) {
+    if (!query) return null;
+
+    return CITY_INDEX.find(city =>
+        city.aliases.some(alias => isCityAliasMatch(query, normalizeSearchValue(alias)))
+    ) || null;
+}
+
+function getCityDistance(port, city) {
+    if (!port.lat || !port.lng) return Infinity;
+    return haversine(city.lat, city.lng, port.lat, port.lng);
+}
+
+function normalizeSearchValue(value) {
+    return (value || '')
+        .toString()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim();
+}
+
+function isCityAliasMatch(query, alias) {
+    if (!query || !alias) return false;
+    if (query === alias || query.includes(alias)) return true;
+    if (alias.length <= 3) return alias.startsWith(query);
+    return query.length >= 3 && alias.includes(query);
 }
 
 function updateMobileStickyState() {
@@ -647,6 +948,24 @@ function isCardFullyPending(port) {
         }
     }
     return hasAnyCat;
+}
+
+function isCardAllUnavailable(port) {
+    const lanes = getPortLanes(port);
+    if (lanes.length === 0) return true;
+    return lanes.every(isLaneUnavailableForCard);
+}
+
+function getPortLanes(port) {
+    return [port.passenger, port.pedestrian, port.commercial]
+        .filter(Boolean)
+        .flatMap(category => [category.standard, category.nexus_sentri, category.ready, category.fast])
+        .filter(Boolean);
+}
+
+function isLaneUnavailableForCard(lane) {
+    if (!lane) return true;
+    return !lane.operational_status || lane.operational_status === 'N/A' || lane.operational_status === 'Update Pending';
 }
 
 // Get the primary wait time for sorting (passenger vehicle standard lane)
