@@ -9,6 +9,13 @@ let refreshInterval;
 let currentLang = localStorage.getItem('bwtLang') || 'es';
 let lastUpdateDate = '';
 let lastUpdateTime = '';
+let supabaseClient = null;
+let supabaseReady = false;
+let installationId = '';
+let currentPortAlerts = [];
+let alertLoadCounter = 0;
+let pushReady = false;
+let pushState = null;
 
 // Translations
 const TRANSLATIONS = {
@@ -47,6 +54,45 @@ const TRANSLATIONS = {
         kmAway: 'km de distancia',
         mAway: 'm de distancia',
         footerDisclaimer: 'Datos obtenidos de U.S. Customs and Border Protection. Sin afiliación ni respaldo de ninguna agencia gubernamental.',
+        alertsTitle: 'Alertas de espera',
+        alertsSubtitle: 'Guarda alertas para esta garita y recíbelas cuando la espera baje.',
+        alertsTravelModeLabel: 'Tipo de cruce',
+        alertsLaneTypeLabel: 'Carril',
+        alertsThresholdLabel: 'Notifícame cuando esté por debajo de',
+        alertsMinutesUnit: 'min',
+        alertsCreateButton: 'Guardar alerta',
+        alertsDeleteButton: 'Eliminar',
+        alertsLoading: 'Cargando alertas...',
+        alertsReady: 'Supabase conectado. Ya puedes guardar alertas para esta garita.',
+        alertsWaitingForSupabase: 'Conectando alertas...',
+        alertsEmpty: 'Aún no tienes alertas guardadas para esta garita.',
+        alertsCurrentWaitPrefix: 'Espera actual',
+        alertsCurrentWaitMissing: 'No hay datos activos para esta combinación de carril.',
+        alertsSaveSuccess: 'Alerta guardada.',
+        alertsDeleteSuccess: 'Alerta eliminada.',
+        alertsSaveError: 'No se pudo guardar la alerta.',
+        alertsDeleteError: 'No se pudo eliminar la alerta.',
+        alertsDuplicate: 'Ya existe una alerta igual para esta garita.',
+        alertsInvalidThreshold: 'Ingresa un tiempo válido entre 0 y 600 minutos.',
+        alertsSchemaMissing: 'Falta crear la tabla de alertas en Supabase.',
+        pushTitle: 'Notificaciones web',
+        pushEnableButton: 'Activar notificaciones',
+        pushDisableButton: 'Desactivar',
+        pushLoading: 'Revisando notificaciones...',
+        pushUnsupported: 'Este navegador no soporta notificaciones push web.',
+        pushConfigMissing: 'Falta configurar la llave Web Push de Firebase.',
+        pushReadyState: 'Activa las notificaciones para recibir alertas en este navegador.',
+        pushEnabled: 'Las notificaciones web están activas en este navegador.',
+        pushDenied: 'Las notificaciones están bloqueadas en este navegador.',
+        pushRegistering: 'Activando notificaciones...',
+        pushRegisterSuccess: 'Notificaciones activadas.',
+        pushRegisterError: 'No se pudieron activar las notificaciones.',
+        pushDisableSuccess: 'Notificaciones desactivadas para este navegador.',
+        pushDisableError: 'No se pudieron desactivar las notificaciones.',
+        pushSchemaMissing: 'Falta crear la tabla de suscripciones push en Supabase.',
+        travelPassenger: 'Vehículos de Pasajeros',
+        travelPedestrian: 'Peatones',
+        travelCommercial: 'Vehículos Comerciales',
     },
     en: {
         tabAll: 'All Ports',
@@ -83,7 +129,59 @@ const TRANSLATIONS = {
         kmAway: 'km away',
         mAway: 'm away',
         footerDisclaimer: 'Data sourced from U.S. Customs and Border Protection. Not affiliated with or endorsed by any government agency.',
+        alertsTitle: 'Wait time alerts',
+        alertsSubtitle: 'Save alerts for this port and get notified when the wait drops.',
+        alertsTravelModeLabel: 'Travel type',
+        alertsLaneTypeLabel: 'Lane',
+        alertsThresholdLabel: 'Notify me when it drops below',
+        alertsMinutesUnit: 'min',
+        alertsCreateButton: 'Save alert',
+        alertsDeleteButton: 'Delete',
+        alertsLoading: 'Loading alerts...',
+        alertsReady: 'Supabase is connected. You can now save alerts for this port.',
+        alertsWaitingForSupabase: 'Connecting alerts...',
+        alertsEmpty: 'You do not have any saved alerts for this port yet.',
+        alertsCurrentWaitPrefix: 'Current wait',
+        alertsCurrentWaitMissing: 'There is no live data for that lane combination.',
+        alertsSaveSuccess: 'Alert saved.',
+        alertsDeleteSuccess: 'Alert deleted.',
+        alertsSaveError: 'Could not save the alert.',
+        alertsDeleteError: 'Could not delete the alert.',
+        alertsDuplicate: 'An identical alert already exists for this port.',
+        alertsInvalidThreshold: 'Enter a valid time between 0 and 600 minutes.',
+        alertsSchemaMissing: 'The alerts table has not been created in Supabase yet.',
+        pushTitle: 'Web notifications',
+        pushEnableButton: 'Enable notifications',
+        pushDisableButton: 'Disable',
+        pushLoading: 'Checking notifications...',
+        pushUnsupported: 'This browser does not support web push notifications.',
+        pushConfigMissing: 'The Firebase Web Push key is not configured yet.',
+        pushReadyState: 'Enable notifications to receive alerts in this browser.',
+        pushEnabled: 'Web notifications are active in this browser.',
+        pushDenied: 'Notifications are blocked in this browser.',
+        pushRegistering: 'Enabling notifications...',
+        pushRegisterSuccess: 'Notifications enabled.',
+        pushRegisterError: 'Could not enable notifications.',
+        pushDisableSuccess: 'Notifications disabled for this browser.',
+        pushDisableError: 'Could not disable notifications.',
+        pushSchemaMissing: 'The push subscriptions table has not been created in Supabase yet.',
+        travelPassenger: 'Passenger Vehicles',
+        travelPedestrian: 'Pedestrians',
+        travelCommercial: 'Commercial Vehicles',
     }
+};
+
+const ALERT_TRAVEL_MODE_LABELS = {
+    passenger: 'travelPassenger',
+    pedestrian: 'travelPedestrian',
+    commercial: 'travelCommercial',
+};
+
+const ALERT_LANE_LABELS = {
+    standard: 'standard',
+    ready: 'readyLane',
+    nexus_sentri: 'sentriNexus',
+    fast: 'fast',
 };
 
 function t(key) { return TRANSLATIONS[currentLang][key] || TRANSLATIONS['en'][key] || key; }
@@ -130,6 +228,117 @@ function setLanguage(lang) {
     if (activeDetailPort) {
         openPortDetail(activeDetailPort, lastFocusedCard);
     }
+    updatePushControls();
+}
+
+function initializeSupabaseAlerts() {
+    const applySupabaseReady = () => {
+        supabaseClient = window.garitaWatchSupabase || null;
+        installationId = window.garitaWatchInstallationId || '';
+        supabaseReady = Boolean(supabaseClient);
+        updateAlertsConnectionBadge();
+
+        if (activeDetailPort) {
+            void loadAlertsForPort(activeDetailPort);
+        } else {
+            renderCurrentPortAlerts();
+        }
+    };
+
+    window.addEventListener('garitaWatchSupabaseReady', applySupabaseReady);
+
+    if (window.garitaWatchSupabase) {
+        applySupabaseReady();
+    } else {
+        updateAlertsConnectionBadge();
+        setAlertFormStatus(t('alertsWaitingForSupabase'), 'muted');
+    }
+}
+
+function updateAlertsConnectionBadge() {
+    if (!portAlertsBadge) return;
+    portAlertsBadge.textContent = supabaseReady ? 'Supabase Ready' : 'Supabase';
+}
+
+function initializePushNotifications() {
+    const applyPushReady = async () => {
+        pushReady = Boolean(window.garitaWatchPush);
+        await refreshPushState();
+    };
+
+    window.addEventListener('garitaWatchPushReady', () => {
+        void applyPushReady();
+    });
+
+    if (window.garitaWatchPush) {
+        void applyPushReady();
+    } else {
+        setPushStatus(t('pushLoading'));
+        updatePushControls();
+    }
+}
+
+function setPushStatus(message, kind = 'muted') {
+    if (!pushPermissionStatus) return;
+
+    pushPermissionStatus.textContent = message || '';
+    pushPermissionStatus.classList.remove('is-success', 'is-error');
+
+    if (kind === 'success') {
+        pushPermissionStatus.classList.add('is-success');
+    } else if (kind === 'error') {
+        pushPermissionStatus.classList.add('is-error');
+    }
+}
+
+function updatePushControls() {
+    const button = document.getElementById('push-permission-button');
+    if (!button) return;
+
+    if (!pushReady || !window.garitaWatchPush?.hasBrowserPushSupport()) {
+        button.textContent = t('pushEnableButton');
+        button.disabled = true;
+        setPushStatus(t('pushUnsupported'), 'error');
+        return;
+    }
+
+    if (!window.garitaWatchPush.hasConfiguredVapidKey()) {
+        button.textContent = t('pushEnableButton');
+        button.disabled = true;
+        setPushStatus(t('pushConfigMissing'), 'error');
+        return;
+    }
+
+    button.disabled = false;
+
+    if (pushState?.registered) {
+        button.textContent = t('pushDisableButton');
+        setPushStatus(t('pushEnabled'), 'success');
+        return;
+    }
+
+    button.textContent = t('pushEnableButton');
+
+    if (pushState?.permission === 'denied') {
+        setPushStatus(t('pushDenied'), 'error');
+    } else {
+        setPushStatus(t('pushReadyState'));
+    }
+}
+
+async function refreshPushState() {
+    if (!pushReady || !window.garitaWatchPush) {
+        updatePushControls();
+        return;
+    }
+
+    try {
+        pushState = await window.garitaWatchPush.syncPushState();
+    } catch (error) {
+        console.error('Error syncing push state:', error);
+    }
+
+    updatePushControls();
 }
 // Static port data: region + coordinates for all Mexican border ports
 // Region keys: ca-bc, az-son, nm-chih, tx-chih, tx-tamps
@@ -336,6 +545,17 @@ const portDetailStatus = document.getElementById('port-detail-status');
 const portDetailHours = document.getElementById('port-detail-hours');
 const portDetailSummary = document.getElementById('port-detail-summary');
 const portDetailLanes = document.getElementById('port-detail-lanes');
+const portAlertsBadge = document.getElementById('port-alerts-badge');
+const portAlertForm = document.getElementById('port-alert-form');
+const alertTravelModeSelect = document.getElementById('alert-travel-mode');
+const alertLaneTypeSelect = document.getElementById('alert-lane-type');
+const alertThresholdInput = document.getElementById('alert-threshold');
+const portAlertSubmit = document.getElementById('port-alert-submit');
+const portAlertCurrentWait = document.getElementById('port-alert-current-wait');
+const portAlertFormStatus = document.getElementById('port-alert-form-status');
+const portAlertsList = document.getElementById('port-alerts-list');
+const pushPermissionButton = document.getElementById('push-permission-button');
+const pushPermissionStatus = document.getElementById('push-permission-status');
 let activeDetailPort = null;
 let lastFocusedCard = null;
 
@@ -347,6 +567,8 @@ async function init() {
         tabAll.classList.remove('active');
     }
     setupEventListeners();
+    initializeSupabaseAlerts();
+    initializePushNotifications();
     setLanguage(currentLang);
     requestUserLocation();
     await fetchData();
@@ -407,6 +629,22 @@ function setupEventListeners() {
                 closePortDetail();
             }
         });
+    }
+
+    if (portAlertForm) {
+        portAlertForm.addEventListener('submit', handleAlertFormSubmit);
+    }
+    if (alertTravelModeSelect) {
+        alertTravelModeSelect.addEventListener('change', updateAlertPreviewForActivePort);
+    }
+    if (alertLaneTypeSelect) {
+        alertLaneTypeSelect.addEventListener('change', updateAlertPreviewForActivePort);
+    }
+    if (alertThresholdInput) {
+        alertThresholdInput.addEventListener('input', updateAlertPreviewForActivePort);
+    }
+    if (pushPermissionButton) {
+        pushPermissionButton.addEventListener('click', handlePushPermissionClick);
     }
 
     document.addEventListener('keydown', (event) => {
@@ -748,6 +986,252 @@ function updateLastUpdatedBadge() {
     lastUpdatedEl.textContent = `${t('updated')} ${formatDateTime(lastUpdateDate, lastUpdateTime)}`;
 }
 
+function setAlertFormStatus(message, kind = 'muted') {
+    if (!portAlertFormStatus) return;
+
+    portAlertFormStatus.textContent = message || '';
+    portAlertFormStatus.classList.remove('is-success', 'is-error', 'is-muted');
+
+    if (kind === 'success') {
+        portAlertFormStatus.classList.add('is-success');
+    } else if (kind === 'error') {
+        portAlertFormStatus.classList.add('is-error');
+    } else {
+        portAlertFormStatus.classList.add('is-muted');
+    }
+}
+
+function updateAlertPreviewForActivePort() {
+    if (!activeDetailPort || !portAlertCurrentWait) return;
+
+    const travelMode = alertTravelModeSelect?.value || 'passenger';
+    const laneType = alertLaneTypeSelect?.value || 'standard';
+    const details = getAlertLaneDetails(activeDetailPort, travelMode, laneType);
+
+    if (!details || isLaneUnavailableForCard(details) || details.delay_minutes === '' || isNaN(details.delay_minutes)) {
+        portAlertCurrentWait.textContent = t('alertsCurrentWaitMissing');
+        return;
+    }
+
+    const delayMinutes = parseInt(details.delay_minutes, 10);
+    const label = `${t(ALERT_TRAVEL_MODE_LABELS[travelMode])} · ${t(ALERT_LANE_LABELS[laneType])}`;
+    const waitText = delayMinutes === 0 ? t('noDelay') : `${delayMinutes} min`;
+    portAlertCurrentWait.textContent = `${t('alertsCurrentWaitPrefix')}: ${label} ${waitText}`;
+}
+
+function renderCurrentPortAlerts() {
+    if (!portAlertsList) return;
+
+    if (!supabaseReady) {
+        portAlertsList.innerHTML = `<p class="port-alert-empty">${t('alertsWaitingForSupabase')}</p>`;
+        return;
+    }
+
+    if (currentPortAlerts.length === 0) {
+        portAlertsList.innerHTML = `<p class="port-alert-empty">${t('alertsEmpty')}</p>`;
+        return;
+    }
+
+    portAlertsList.innerHTML = currentPortAlerts.map((alert) => `
+        <article class="port-alert-item">
+            <div class="port-alert-item-copy">
+                <div class="port-alert-item-title">${t(ALERT_TRAVEL_MODE_LABELS[alert.travel_mode])} · ${t(ALERT_LANE_LABELS[alert.lane_type])} &lt; ${alert.threshold_minutes} min</div>
+                <div class="port-alert-item-meta">${new Date(alert.created_at).toLocaleString()}</div>
+            </div>
+            <button class="port-alert-delete" type="button" data-alert-id="${alert.id}">${t('alertsDeleteButton')}</button>
+        </article>
+    `).join('');
+
+    portAlertsList.querySelectorAll('.port-alert-delete').forEach((button) => {
+        button.addEventListener('click', () => {
+            void deleteAlert(button.dataset.alertId);
+        });
+    });
+}
+
+async function loadAlertsForPort(port) {
+    if (!port) return;
+
+    updateAlertPreviewForActivePort();
+
+    if (!supabaseReady || !supabaseClient) {
+        currentPortAlerts = [];
+        renderCurrentPortAlerts();
+        return;
+    }
+
+    const loadId = ++alertLoadCounter;
+    currentPortAlerts = [];
+    renderCurrentPortAlerts();
+    setAlertFormStatus(t('alertsLoading'));
+
+    try {
+        const { data, error } = await supabaseClient
+            .from('wait_time_alerts')
+            .select('id, travel_mode, lane_type, threshold_minutes, created_at')
+            .eq('port_number', port.port_number)
+            .eq('is_active', true)
+            .order('created_at', { ascending: false });
+
+        if (loadId !== alertLoadCounter) return;
+        if (error) throw error;
+
+        currentPortAlerts = data || [];
+        renderCurrentPortAlerts();
+        setAlertFormStatus(t('alertsReady'));
+    } catch (error) {
+        console.error('Error loading alerts:', error);
+        currentPortAlerts = [];
+        renderCurrentPortAlerts();
+        setAlertFormStatus(getAlertErrorMessage(error, 'load'), 'error');
+    }
+}
+
+function getAlertLaneDetails(port, travelMode, laneType) {
+    return port?.[travelMode]?.[laneType] || null;
+}
+
+function getAlertErrorMessage(error, action) {
+    if (error?.code === '42P01' || `${error?.message || ''}`.includes('wait_time_alerts')) {
+        return t('alertsSchemaMissing');
+    }
+
+    return action === 'delete' ? t('alertsDeleteError') : t('alertsSaveError');
+}
+
+function getPushErrorMessage(error, action) {
+    if (error?.code === '42P01' || `${error?.message || ''}`.includes('device_subscriptions')) {
+        return t('pushSchemaMissing');
+    }
+
+    if (`${error?.message || ''}`.includes('VAPID')) {
+        return t('pushConfigMissing');
+    }
+
+    if (`${error?.message || ''}`.includes('blocked')) {
+        return t('pushDenied');
+    }
+
+    return action === 'disable' ? t('pushDisableError') : t('pushRegisterError');
+}
+
+async function handlePushPermissionClick() {
+    if (!pushPermissionButton || !window.garitaWatchPush) {
+        return;
+    }
+
+    const isRegistered = Boolean(pushState?.registered);
+    pushPermissionButton.disabled = true;
+    setPushStatus(isRegistered ? t('pushLoading') : t('pushRegistering'));
+
+    try {
+        if (isRegistered) {
+            await window.garitaWatchPush.disablePush();
+            setPushStatus(t('pushDisableSuccess'), 'success');
+        } else {
+            await window.garitaWatchPush.requestAndRegisterPush({ locale: currentLang });
+            setPushStatus(t('pushRegisterSuccess'), 'success');
+        }
+    } catch (error) {
+        console.error('Push notification update failed:', error);
+        setPushStatus(getPushErrorMessage(error, isRegistered ? 'disable' : 'register'), 'error');
+    } finally {
+        pushPermissionButton.disabled = false;
+        await refreshPushState();
+    }
+}
+
+async function handleAlertFormSubmit(event) {
+    event.preventDefault();
+
+    if (!activeDetailPort || !supabaseReady || !supabaseClient) {
+        setAlertFormStatus(t('alertsWaitingForSupabase'), 'error');
+        return;
+    }
+
+    const travelMode = alertTravelModeSelect?.value || 'passenger';
+    const laneType = alertLaneTypeSelect?.value || 'standard';
+    const thresholdMinutes = parseInt(alertThresholdInput?.value || '', 10);
+
+    if (!Number.isInteger(thresholdMinutes) || thresholdMinutes < 0 || thresholdMinutes > 600) {
+        setAlertFormStatus(t('alertsInvalidThreshold'), 'error');
+        return;
+    }
+
+    const duplicateAlert = currentPortAlerts.some((alert) =>
+        alert.travel_mode === travelMode &&
+        alert.lane_type === laneType &&
+        alert.threshold_minutes === thresholdMinutes
+    );
+
+    if (duplicateAlert) {
+        setAlertFormStatus(t('alertsDuplicate'), 'error');
+        return;
+    }
+
+    if (portAlertSubmit) {
+        portAlertSubmit.disabled = true;
+    }
+    setAlertFormStatus(t('alertsLoading'));
+
+    try {
+        const crossingName = activeDetailPort.crossing_name && activeDetailPort.crossing_name !== 'N/A'
+            ? toTitleCase(activeDetailPort.crossing_name)
+            : null;
+
+        const { data, error } = await supabaseClient
+            .from('wait_time_alerts')
+            .insert({
+                installation_id: installationId,
+                port_number: activeDetailPort.port_number,
+                port_name: toTitleCase(activeDetailPort.port_name),
+                crossing_name: crossingName,
+                travel_mode: travelMode,
+                lane_type: laneType,
+                operator: 'lte',
+                threshold_minutes: thresholdMinutes,
+            })
+            .select('id, travel_mode, lane_type, threshold_minutes, created_at')
+            .single();
+
+        if (error) throw error;
+
+        currentPortAlerts = [data, ...currentPortAlerts];
+        renderCurrentPortAlerts();
+        setAlertFormStatus(t('alertsSaveSuccess'), 'success');
+    } catch (error) {
+        console.error('Error saving alert:', error);
+        setAlertFormStatus(getAlertErrorMessage(error, 'save'), 'error');
+    } finally {
+        if (portAlertSubmit) {
+            portAlertSubmit.disabled = false;
+        }
+    }
+}
+
+async function deleteAlert(alertId) {
+    if (!alertId || !supabaseReady || !supabaseClient) {
+        setAlertFormStatus(t('alertsDeleteError'), 'error');
+        return;
+    }
+
+    try {
+        const { error } = await supabaseClient
+            .from('wait_time_alerts')
+            .delete()
+            .eq('id', alertId);
+
+        if (error) throw error;
+
+        currentPortAlerts = currentPortAlerts.filter((alert) => alert.id !== alertId);
+        renderCurrentPortAlerts();
+        setAlertFormStatus(t('alertsDeleteSuccess'), 'success');
+    } catch (error) {
+        console.error('Error deleting alert:', error);
+        setAlertFormStatus(getAlertErrorMessage(error, 'delete'), 'error');
+    }
+}
+
 function openPortDetail(port, cardElement) {
     if (!portDetailModal) return;
 
@@ -773,6 +1257,9 @@ function openPortDetail(port, cardElement) {
     portDetailHours.textContent = port.hours || 'N/A';
 
     renderPortDetailSummary(port);
+    updateAlertPreviewForActivePort();
+    void refreshPushState();
+    void loadAlertsForPort(port);
     populateLanesContainer(portDetailLanes, port);
 
     portDetailModal.classList.remove('hidden');
@@ -791,10 +1278,12 @@ function closePortDetail() {
     if (!portDetailModal) return;
 
     activeDetailPort = null;
+    currentPortAlerts = [];
     portDetailModal.classList.add('hidden');
     portDetailModal.setAttribute('aria-hidden', 'true');
     document.body.classList.remove('modal-open');
     document.body.classList.remove('mobile-detail-open');
+    renderCurrentPortAlerts();
     if (lastFocusedCard && typeof lastFocusedCard.focus === 'function') {
         lastFocusedCard.focus();
     }

@@ -9,10 +9,10 @@
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
-        <script>
-  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
-</script>
-<script defer src="/_vercel/insights/script.js"></script>
+    <script>
+        window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+    </script>
+    <script defer src="/_vercel/insights/script.js"></script>
 </head>
 
 <body>
@@ -103,6 +103,58 @@
                 </div>
             </div>
             <div id="port-detail-summary" class="port-detail-summary"></div>
+            <section id="port-alerts-section" class="port-alerts-section">
+                <div class="port-alerts-header">
+                    <div>
+                        <h3 class="port-alerts-title" data-i18n="alertsTitle">Alertas de espera</h3>
+                        <p class="port-alerts-subtitle" data-i18n="alertsSubtitle">Guarda alertas para esta garita y recíbelos cuando la espera baje.</p>
+                    </div>
+                    <span id="port-alerts-badge" class="badge outline">Supabase</span>
+                </div>
+
+                <div class="push-permission-panel">
+                    <div class="push-permission-copy">
+                        <p class="push-permission-title" data-i18n="pushTitle">Notificaciones web</p>
+                        <p id="push-permission-status" class="push-permission-status" aria-live="polite">Configuring push...</p>
+                    </div>
+                    <button id="push-permission-button" class="push-permission-button" type="button">Enable notifications</button>
+                </div>
+
+                <form id="port-alert-form" class="port-alert-form">
+                    <label class="port-alert-field">
+                        <span data-i18n="alertsTravelModeLabel">Tipo de cruce</span>
+                        <select id="alert-travel-mode">
+                            <option value="passenger" data-i18n="travelPassenger">Vehículos de Pasajeros</option>
+                            <option value="pedestrian" data-i18n="travelPedestrian">Peatones</option>
+                            <option value="commercial" data-i18n="travelCommercial">Vehículos Comerciales</option>
+                        </select>
+                    </label>
+
+                    <label class="port-alert-field">
+                        <span data-i18n="alertsLaneTypeLabel">Carril</span>
+                        <select id="alert-lane-type">
+                            <option value="standard" data-i18n="standard">Estándar</option>
+                            <option value="ready" data-i18n="readyLane">Ready Lane</option>
+                            <option value="nexus_sentri" data-i18n="sentriNexus">SENTRI/NEXUS</option>
+                            <option value="fast" data-i18n="fast">FAST</option>
+                        </select>
+                    </label>
+
+                    <label class="port-alert-field">
+                        <span data-i18n="alertsThresholdLabel">Notifícame cuando esté por debajo de</span>
+                        <div class="port-alert-threshold-wrap">
+                            <input id="alert-threshold" type="number" min="0" step="5" value="60" inputmode="numeric">
+                            <span class="port-alert-threshold-unit" data-i18n="alertsMinutesUnit">min</span>
+                        </div>
+                    </label>
+
+                    <button id="port-alert-submit" class="port-alert-submit" type="submit" data-i18n="alertsCreateButton">Guardar alerta</button>
+                </form>
+
+                <p id="port-alert-current-wait" class="port-alert-current-wait"></p>
+                <p id="port-alert-form-status" class="port-alert-form-status" aria-live="polite"></p>
+                <div id="port-alerts-list" class="port-alerts-list"></div>
+            </section>
             <div id="port-detail-lanes" class="lanes-container port-detail-lanes"></div>
         </div>
     </div>
@@ -156,8 +208,14 @@
         <p data-i18n="footerDisclaimer">Datos obtenidos de U.S. Customs and Border Protection. Sin afiliación ni
             respaldo de ninguna agencia gubernamental.</p>
         <p><a href="mailto:contact@garitawatch.com">contact@garitawatch.com</a></p>
+        <div class="footer-tools">
+            <button id="supabase-test-btn" class="footer-test-btn" type="button">Test Supabase</button>
+            <span id="supabase-test-status" class="footer-test-status" aria-live="polite">Not checked</span>
+        </div>
     </footer>
 
+    <script type="module" src="supabase-init.js"></script>
+    <script type="module" src="firebase-init.js"></script>
     <script src="app.js"></script>
 </body>
 
