@@ -86,3 +86,36 @@ Default behavior:
 
 - compares the latest lane snapshot against the last 7 days of history
 - requires at least 12 historical samples before returning a real trend label
+- uses a conservative threshold band of `max(7 minutes, 25% of usual delay)`
+- treats deltas under 7 minutes as `about_normal`
+
+## Daily Lane Guidance V1
+
+Run `port_lane_daily_guidance_v1.sql` after `port_lane_wait_snapshots_v1.sql` to add a once-per-day derived table that both web and mobile can cache locally.
+
+What it creates:
+
+- `public.port_lane_daily_guidance`
+- `public.get_port_time_zone(...)`
+- `public.refresh_port_lane_daily_guidance(...)`
+- `public.get_current_port_lane_daily_guidance(...)`
+
+What it stores:
+
+- the current lane wait for the latest snapshot
+- precomputed `trend_label` / `usual_delay_minutes`
+- `best_hours_json` with the top low-wait local hours for the lane
+- `generated_at`, `expires_at`, and `snapshot_date` for 24-hour client caching
+
+Recommended refresh flow:
+
+- call `select public.refresh_port_lane_daily_guidance();` once per day
+- let web/mobile cache the returned snapshot rows locally until `expires_at`
+- use `public.get_current_port_lane_daily_guidance(...)` for client reads
+
+Recommended client pattern:
+
+- fetch the full daily snapshot once
+- cache it on device/browser
+- do not re-read it until it expires or a newer `generated_at` is available
+- fall back to `public.get_lane_wait_comparison(...)` only if the daily snapshot has not been generated yet

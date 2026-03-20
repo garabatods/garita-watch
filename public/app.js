@@ -19,6 +19,8 @@ let currentLaneComparisons = {};
 let pushReady = false;
 let pushState = null;
 let pushToastTimer = null;
+let dailyGuidanceSnapshot = null;
+let dailyGuidanceLoadPromise = null;
 
 // Translations
 const TRANSLATIONS = {
@@ -199,6 +201,9 @@ const LANE_HISTORY_PORT_FALLBACKS = {
     '250609': '250601',
 };
 
+const DAILY_GUIDANCE_CACHE_KEY = 'garitaWatchDailyGuidanceCache';
+const DAILY_GUIDANCE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
 function t(key) { return TRANSLATIONS[currentLang][key] || TRANSLATIONS['en'][key] || key; }
 
 function setLanguage(lang) {
@@ -284,6 +289,145 @@ function resolveLaneHistoryPortNumber(port) {
     return LANE_HISTORY_PORT_FALLBACKS[port?.port_number] || port?.port_number || null;
 }
 
+function readDailyGuidanceCache() {
+    try {
+        const raw = localStorage.getItem(DAILY_GUIDANCE_CACHE_KEY);
+        if (!raw) {
+            return null;
+        }
+
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed?.rows)) {
+            return null;
+        }
+
+        return parsed;
+    } catch (error) {
+        console.warn('Unable to read daily guidance cache:', error);
+        return null;
+    }
+}
+
+function writeDailyGuidanceCache(snapshot) {
+    try {
+        if (!snapshot || !Array.isArray(snapshot.rows) || snapshot.rows.length === 0) {
+            localStorage.removeItem(DAILY_GUIDANCE_CACHE_KEY);
+            return;
+        }
+
+        localStorage.setItem(DAILY_GUIDANCE_CACHE_KEY, JSON.stringify(snapshot));
+    } catch (error) {
+        console.warn('Unable to persist daily guidance cache:', error);
+    }
+}
+
+function normalizeDailyGuidanceSnapshot(rows) {
+    if (!Array.isArray(rows) || rows.length === 0) {
+        return {
+            expiresAt: null,
+            generatedAt: null,
+            rows: [],
+            snapshotDate: null,
+        };
+    }
+
+    const [firstRow] = rows;
+
+    return {
+        expiresAt: firstRow.expires_at || null,
+        generatedAt: firstRow.generated_at || null,
+        rows,
+        snapshotDate: firstRow.snapshot_date || null,
+    };
+}
+
+function isDailyGuidanceSnapshotFresh(snapshot) {
+    if (!snapshot || !Array.isArray(snapshot.rows) || snapshot.rows.length === 0) {
+        return false;
+    }
+
+    const expiresAt = snapshot.expiresAt ? Date.parse(snapshot.expiresAt) : NaN;
+    if (Number.isFinite(expiresAt)) {
+        return Date.now() < expiresAt;
+    }
+
+    const generatedAt = snapshot.generatedAt ? Date.parse(snapshot.generatedAt) : NaN;
+    return Number.isFinite(generatedAt) && (Date.now() - generatedAt) < DAILY_GUIDANCE_MAX_AGE_MS;
+}
+
+async function fetchDailyGuidanceSnapshot() {
+    const { data, error } = await supabaseClient.rpc('get_current_port_lane_daily_guidance', {
+        in_port_number: null,
+    });
+
+    if (error) {
+        throw error;
+    }
+
+    const snapshot = normalizeDailyGuidanceSnapshot(data || []);
+    dailyGuidanceSnapshot = snapshot;
+    writeDailyGuidanceCache(snapshot);
+    return snapshot;
+}
+
+async function getDailyGuidanceSnapshot() {
+    if (isDailyGuidanceSnapshotFresh(dailyGuidanceSnapshot)) {
+        return dailyGuidanceSnapshot;
+    }
+
+    const cachedSnapshot = readDailyGuidanceCache();
+    if (isDailyGuidanceSnapshotFresh(cachedSnapshot)) {
+        dailyGuidanceSnapshot = cachedSnapshot;
+        return cachedSnapshot;
+    }
+
+    if (!supabaseReady || !supabaseClient) {
+        return cachedSnapshot || dailyGuidanceSnapshot;
+    }
+
+    if (dailyGuidanceLoadPromise) {
+        return dailyGuidanceLoadPromise;
+    }
+
+    dailyGuidanceLoadPromise = fetchDailyGuidanceSnapshot()
+        .catch((error) => {
+            const fallbackSnapshot = cachedSnapshot || dailyGuidanceSnapshot;
+            if (fallbackSnapshot?.rows?.length) {
+                return fallbackSnapshot;
+            }
+            throw error;
+        })
+        .finally(() => {
+            dailyGuidanceLoadPromise = null;
+        });
+
+    return dailyGuidanceLoadPromise;
+}
+
+function buildComparisonMapFromRows(rows) {
+    return (rows || []).reduce((acc, row) => {
+        acc[getLaneComparisonKey(row.travel_mode, row.lane_type)] = row;
+        return acc;
+    }, {});
+}
+
+function getDailyGuidanceComparisonsForPort(port, snapshot) {
+    if (!port || !snapshot?.rows?.length) {
+        return {};
+    }
+
+    const exactPortNumber = port.port_number;
+    const fallbackPortNumber = resolveLaneHistoryPortNumber(port);
+
+    let rows = snapshot.rows.filter((row) => row.port_number === exactPortNumber);
+
+    if (rows.length === 0 && fallbackPortNumber && fallbackPortNumber !== exactPortNumber) {
+        rows = snapshot.rows.filter((row) => row.port_number === fallbackPortNumber);
+    }
+
+    return buildComparisonMapFromRows(rows);
+}
+
 function getTrendLabel(comparison) {
     if (!comparison || comparison.trend_label === 'not_enough_data') {
         return null;
@@ -333,6 +477,22 @@ async function loadLaneComparisonsForPort(port) {
     const fallbackPortNumber = resolveLaneHistoryPortNumber(port);
 
     try {
+        const dailySnapshot = await getDailyGuidanceSnapshot();
+        const dailyComparisons = getDailyGuidanceComparisonsForPort(port, dailySnapshot);
+
+        if (Object.keys(dailyComparisons).length > 0) {
+            if (loadId !== laneComparisonLoadCounter) {
+                return;
+            }
+
+            currentLaneComparisons = dailyComparisons;
+
+            if (activeDetailPort?.port_number === port.port_number) {
+                populateLanesContainer(portDetailLanes, port, { comparisons: currentLaneComparisons, showComparison: true });
+            }
+            return;
+        }
+
         let { data, error } = await supabaseClient.rpc('get_lane_wait_comparison', {
             in_lane_type: null,
             in_lookback_days: 7,
@@ -365,10 +525,7 @@ async function loadLaneComparisonsForPort(port) {
             return;
         }
 
-        currentLaneComparisons = (data || []).reduce((acc, row) => {
-            acc[getLaneComparisonKey(row.travel_mode, row.lane_type)] = row;
-            return acc;
-        }, {});
+        currentLaneComparisons = buildComparisonMapFromRows(data || []);
     } catch (error) {
         console.warn('Unable to load lane comparisons:', error);
         currentLaneComparisons = {};

@@ -1,0 +1,32 @@
+-- Garita Watch daily lane guidance test queries
+--
+-- Use these after running `port_lane_daily_guidance_v1.sql`.
+
+-- 1. Rebuild today's snapshot.
+-- select public.refresh_port_lane_daily_guidance();
+
+-- 2. Inspect the latest rows for one port.
+-- select
+--   snapshot_date,
+--   port_number,
+--   travel_mode,
+--   lane_type,
+--   current_delay_minutes,
+--   usual_delay_minutes,
+--   sample_count,
+--   trend_label,
+--   best_hours_json,
+--   generated_at,
+--   expires_at
+-- from public.get_current_port_lane_daily_guidance('250601');
+
+-- 3. Inspect the full latest snapshot.
+-- select
+--   snapshot_date,
+--   port_number,
+--   travel_mode,
+--   lane_type,
+--   trend_label,
+--   best_hours_json
+-- from public.get_current_port_lane_daily_guidance(null)
+-- order by port_number, travel_mode, lane_type;

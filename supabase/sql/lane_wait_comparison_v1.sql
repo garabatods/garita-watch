@@ -94,11 +94,12 @@ as $$
         round(coalesce(baseline.usual_delay_minutes, 0), 1) as usual_delay_minutes,
         baseline.sample_count,
         round(coalesce(baseline.current_delay_minutes - baseline.usual_delay_minutes, 0), 1) as delta_minutes,
-        round(greatest(5, coalesce(baseline.usual_delay_minutes, 0) * 0.20), 1) as comparison_band_minutes,
+        round(greatest(7, coalesce(baseline.usual_delay_minutes, 0) * 0.25), 1) as comparison_band_minutes,
         case
             when baseline.sample_count < greatest(in_minimum_samples, 1) then 'not_enough_data'
-            when baseline.current_delay_minutes <= baseline.usual_delay_minutes - greatest(5, baseline.usual_delay_minutes * 0.20) then 'faster_than_usual'
-            when baseline.current_delay_minutes >= baseline.usual_delay_minutes + greatest(5, baseline.usual_delay_minutes * 0.20) then 'slower_than_usual'
+            when abs(baseline.current_delay_minutes - baseline.usual_delay_minutes) < 7 then 'about_normal'
+            when baseline.current_delay_minutes <= baseline.usual_delay_minutes - greatest(7, baseline.usual_delay_minutes * 0.25) then 'faster_than_usual'
+            when baseline.current_delay_minutes >= baseline.usual_delay_minutes + greatest(7, baseline.usual_delay_minutes * 0.25) then 'slower_than_usual'
             else 'about_normal'
         end as trend_label
     from baseline

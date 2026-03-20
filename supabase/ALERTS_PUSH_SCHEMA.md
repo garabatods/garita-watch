@@ -166,9 +166,109 @@ Notes:
 - It reads from `public.port_lane_wait_snapshots`.
 - It is granted to `anon` and `authenticated`.
 - It is the preferred public-facing read surface for lane trend labels instead of exposing the raw history table directly.
+- Current conservative tuning:
+  - minimum meaningful delta: `7` minutes
+  - comparison band: `max(7 minutes, 25% of usual delay)`
 
 Defined in:
 - [lane_wait_comparison_v1.sql](C:/ProjectsApp/border/supabase/sql/lane_wait_comparison_v1.sql)
+
+### `public.port_lane_daily_guidance`
+
+Purpose:
+- Stores the once-per-day derived lane guidance snapshot shared by web and mobile.
+- Designed to let clients cache one daily payload instead of repeatedly querying historical comparisons.
+
+Main columns:
+- `id uuid primary key`
+- `snapshot_date date not null`
+- `generated_at timestamptz not null`
+- `expires_at timestamptz not null`
+- `lookback_days integer not null`
+- `minimum_samples integer not null`
+- `port_number text not null`
+- `port_name text not null`
+- `crossing_name text`
+- `travel_mode text not null`
+- `lane_type text not null`
+- `time_zone text`
+- `current_delay_minutes integer`
+- `current_observed_at timestamptz`
+- `usual_delay_minutes numeric`
+- `sample_count integer not null`
+- `delta_minutes numeric`
+- `comparison_band_minutes numeric`
+- `trend_label text not null`
+- `best_hours_json jsonb not null`
+- `best_hours_sample_count integer not null`
+- `created_at timestamptz`
+
+Important constraint:
+- `unique (snapshot_date, port_number, travel_mode, lane_type)`
+
+Notes:
+- `trend_label` uses the same values as the live comparison RPC:
+  - `faster_than_usual`
+  - `slower_than_usual`
+  - `about_normal`
+  - `not_enough_data`
+- `best_hours_json` stores the top low-wait local hours for the lane, for example:
+  - `[{ "hour": 6, "average_delay_minutes": 12.4, "sample_count": 28 }]`
+
+Defined in:
+- [port_lane_daily_guidance_v1.sql](C:/ProjectsApp/border/supabase/sql/port_lane_daily_guidance_v1.sql)
+
+### `public.get_port_time_zone(...)`
+
+Purpose:
+- Maps Garita Watch `port_number` values to the local IANA time zone used for best-hours aggregation.
+
+Current mappings:
+- California ports -> `America/Los_Angeles`
+- Arizona ports -> `America/Phoenix`
+- New Mexico / El Paso area ports -> `America/Denver`
+- Texas Tamaulipas/Coahuila ports -> `America/Chicago`
+
+Defined in:
+- [port_lane_daily_guidance_v1.sql](C:/ProjectsApp/border/supabase/sql/port_lane_daily_guidance_v1.sql)
+
+### `public.refresh_port_lane_daily_guidance(...)`
+
+Purpose:
+- Rebuilds the once-per-day lane guidance snapshot from `public.port_lane_wait_snapshots`.
+
+Signature:
+- `public.refresh_port_lane_daily_guidance(in_snapshot_date date default current_date, in_lookback_days integer default 14, in_minimum_samples integer default 24, in_best_hour_sample_minimum integer default 6, in_top_hour_count integer default 3)`
+
+Behavior:
+- finds the latest current lane row
+- computes the lane's `usual_delay_minutes` baseline
+- computes `trend_label`
+- computes `best_hours_json`
+- upserts rows into `public.port_lane_daily_guidance`
+
+Recommended usage:
+- run once per day
+- then let clients cache the resulting snapshot for 24 hours
+
+Defined in:
+- [port_lane_daily_guidance_v1.sql](C:/ProjectsApp/border/supabase/sql/port_lane_daily_guidance_v1.sql)
+
+### `public.get_current_port_lane_daily_guidance(...)`
+
+Purpose:
+- Public-facing read surface for the latest daily guidance snapshot.
+- This is the preferred shared read path for both web and mobile cached guidance.
+
+Signature:
+- `public.get_current_port_lane_daily_guidance(in_port_number text default null)`
+
+Behavior:
+- returns rows from the latest `snapshot_date`
+- optionally filters to a specific `port_number`
+
+Defined in:
+- [port_lane_daily_guidance_v1.sql](C:/ProjectsApp/border/supabase/sql/port_lane_daily_guidance_v1.sql)
 
 ## Shared Functions / Helpers
 
@@ -227,6 +327,9 @@ Flow:
 2. Alert form inserts into `public.wait_time_alerts`.
 3. Push enable flow registers an FCM token.
 4. Browser upserts `public.device_subscriptions`.
+5. Lane trend chips now prefer `public.get_current_port_lane_daily_guidance(...)`.
+6. The web app caches the full daily guidance snapshot in `localStorage` until `expires_at`.
+7. If the daily snapshot is missing, the web app falls back to `public.get_lane_wait_comparison(...)`.
 
 ### Backend
 
@@ -266,6 +369,7 @@ If another agent just needs the table names and key linkage:
 - device/token table: `public.device_subscriptions`
 - delivery log table: `public.alert_deliveries`
 - lane history table: `public.port_lane_wait_snapshots`
+- daily guidance table: `public.port_lane_daily_guidance`
 - browser-scoping header/function: `x-installation-id` / `public.request_installation_id()`
 - alert-to-delivery join: `alert_deliveries.alert_id -> wait_time_alerts.id`
 - alert-to-device join at runtime: `wait_time_alerts.installation_id -> device_subscriptions.installation_id`
