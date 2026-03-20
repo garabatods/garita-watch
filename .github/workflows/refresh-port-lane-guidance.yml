@@ -1,0 +1,58 @@
+name: Refresh Port Lane Daily Guidance
+
+on:
+  schedule:
+    - cron: "15 8 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: refresh-port-lane-guidance
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+    steps:
+      - name: Validate required secrets
+        run: |
+          set -euo pipefail
+
+          if [ -z "${SUPABASE_URL}" ]; then
+            echo "SUPABASE_URL secret is missing."
+            exit 1
+          fi
+
+          if [ -z "${SUPABASE_SERVICE_ROLE_KEY}" ]; then
+            echo "SUPABASE_SERVICE_ROLE_KEY secret is missing."
+            exit 1
+          fi
+
+      - name: Refresh daily guidance snapshot
+        run: |
+          set -euo pipefail
+
+          rpc_url="${SUPABASE_URL%/}/rest/v1/rpc/refresh_port_lane_daily_guidance"
+
+          echo "Calling: ${rpc_url}"
+
+          response="$(
+            curl --fail-with-body --silent --show-error \
+              --request POST "${rpc_url}" \
+              --header "Content-Type: application/json" \
+              --header "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+              --header "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+              --data '{}'
+          )"
+
+          echo "Refresh result:"
+          echo "${response}" | head -c 2000
+          echo ""
