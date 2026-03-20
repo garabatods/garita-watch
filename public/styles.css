@@ -50,7 +50,7 @@ body {
 .app-container {
     max-width: 1600px;
     margin: 0 auto;
-    padding: 2rem 1rem;
+    padding: 2rem clamp(1rem, 3vw, 3.5rem);
 }
 
 .glass-panel {
