@@ -2,17 +2,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/fireba
 import { getAnalytics, isSupported as isAnalyticsSupported } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-analytics.js";
 import { deleteToken, getMessaging, getToken, isSupported as isMessagingSupported, onMessage } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-messaging.js";
 
-const firebaseConfig = {
-    apiKey: "AIzaSyASTcnJax2Q5Gxj-0TwvillDNtJvWA6PYE",
-    authDomain: "garita-watch.firebaseapp.com",
-    projectId: "garita-watch",
-    storageBucket: "garita-watch.firebasestorage.app",
-    messagingSenderId: "759390641570",
-    appId: "1:759390641570:web:3cd501ad9e34457657a6fb",
-    measurementId: "G-W1RJ19593G"
-};
-
-const webPushVapidKey = "BGgrIzaQEM4jRHJM6AtAzZ2iXMVBmN0tj7FKIj_PHx5augZyfB8HXm3Nxif69D5jF4blXuSQtwj-n73NXrqgxR8";
+const firebaseConfig = window.garitaWatchFirebaseConfig;
+const webPushVapidKey = window.garitaWatchFirebaseWebPushVapidKey || "";
 
 const app = initializeApp(firebaseConfig);
 let analytics = null;

@@ -1,15 +1,8 @@
 importScripts("https://www.gstatic.com/firebasejs/12.10.0/firebase-app-compat.js");
 importScripts("https://www.gstatic.com/firebasejs/12.10.0/firebase-messaging-compat.js");
+importScripts("/firebase-config.js");
 
-firebase.initializeApp({
-    apiKey: "AIzaSyASTcnJax2Q5Gxj-0TwvillDNtJvWA6PYE",
-    authDomain: "garita-watch.firebaseapp.com",
-    projectId: "garita-watch",
-    storageBucket: "garita-watch.firebasestorage.app",
-    messagingSenderId: "759390641570",
-    appId: "1:759390641570:web:3cd501ad9e34457657a6fb",
-    measurementId: "G-W1RJ19593G"
-});
+firebase.initializeApp(self.garitaWatchFirebaseConfig);
 
 const messaging = firebase.messaging();
 
