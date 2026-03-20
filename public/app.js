@@ -501,18 +501,6 @@ function getTrendLabel(comparison, options = {}) {
     return null;
 }
 
-function getCardTrendIconMarkup(trendClassName) {
-    if (trendClassName === 'is-faster') {
-        return '<span class="lane-trend-icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8.25"></circle><path d="M10 13.6V6.6"></path><path d="M6.9 9.7L10 6.6l3.1 3.1"></path></svg></span>';
-    }
-
-    if (trendClassName === 'is-slower') {
-        return '<span class="lane-trend-icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8.25"></circle><path d="M10 6.4v7"></path><path d="M6.9 10.3 10 13.4l3.1-3.1"></path></svg></span>';
-    }
-
-    return '';
-}
-
 function getBestHoursEntries(comparison) {
     if (!Array.isArray(comparison?.best_hours_json) || comparison.best_hours_json.length === 0) {
         return [];
@@ -1431,7 +1419,7 @@ function renderLaneType(container, name, details, comparison = null, options = {
             trendEl.classList.add(trend.className);
 
             if (layout === 'card') {
-                trendEl.innerHTML = `${trend.text}${getCardTrendIconMarkup(trend.className)}`;
+                trendEl.textContent = trend.text;
 
                 if (trend.className === 'is-faster') {
                     badge.style.color = '#1dff5c';
