@@ -503,6 +503,24 @@ body {
     border: 1px solid rgba(96, 165, 250, 0.24);
 }
 
+.lane-guidance {
+    display: flex;
+    gap: 0.35rem;
+    align-items: baseline;
+    flex-wrap: wrap;
+    font-size: 0.72rem;
+}
+
+.lane-guidance-label {
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.lane-guidance-value {
+    color: #cbd5e1;
+    font-weight: 500;
+}
+
 .delay-badge {
     padding: 0.4rem 0.75rem;
     border-radius: 6px;

@@ -21,6 +21,7 @@ let pushState = null;
 let pushToastTimer = null;
 let dailyGuidanceSnapshot = null;
 let dailyGuidanceLoadPromise = null;
+let dailyGuidanceSyncPromise = null;
 
 // Translations
 const TRANSLATIONS = {
@@ -99,6 +100,7 @@ const TRANSLATIONS = {
         trendFasterThanUsual: 'Más rápido de lo usual',
         trendSlowerThanUsual: 'Más lento de lo usual',
         trendAboutNormal: 'Normal para esta hora',
+        bestHoursLabel: 'Mejores horas',
         travelPassenger: 'Vehículos de Pasajeros',
         travelPedestrian: 'Peatones',
         travelCommercial: 'Vehículos Comerciales',
@@ -178,6 +180,7 @@ const TRANSLATIONS = {
         trendFasterThanUsual: 'Faster than usual',
         trendSlowerThanUsual: 'Slower than usual',
         trendAboutNormal: 'About normal right now',
+        bestHoursLabel: 'Best hours',
         travelPassenger: 'Passenger Vehicles',
         travelPedestrian: 'Pedestrians',
         travelCommercial: 'Commercial Vehicles',
@@ -371,14 +374,33 @@ async function fetchDailyGuidanceSnapshot() {
 }
 
 async function getDailyGuidanceSnapshot() {
-    if (isDailyGuidanceSnapshotFresh(dailyGuidanceSnapshot)) {
+    const cachedSnapshot = readDailyGuidanceCache();
+    const inMemoryFresh = isDailyGuidanceSnapshotFresh(dailyGuidanceSnapshot);
+    const cachedFresh = isDailyGuidanceSnapshotFresh(cachedSnapshot);
+
+    if (inMemoryFresh) {
         return dailyGuidanceSnapshot;
     }
 
-    const cachedSnapshot = readDailyGuidanceCache();
-    if (isDailyGuidanceSnapshotFresh(cachedSnapshot)) {
+    if (cachedFresh) {
         dailyGuidanceSnapshot = cachedSnapshot;
-        return cachedSnapshot;
+
+        if (!supabaseReady || !supabaseClient) {
+            return cachedSnapshot;
+        }
+
+        if (!dailyGuidanceSyncPromise) {
+            dailyGuidanceSyncPromise = fetchDailyGuidanceSnapshot()
+                .catch((error) => {
+                    console.warn('Unable to refresh cached daily guidance snapshot:', error);
+                    return cachedSnapshot;
+                })
+                .finally(() => {
+                    dailyGuidanceSyncPromise = null;
+                });
+        }
+
+        return dailyGuidanceSyncPromise;
     }
 
     if (!supabaseReady || !supabaseClient) {
@@ -455,6 +477,65 @@ function getTrendLabel(comparison) {
     }
 
     return null;
+}
+
+function getBestHoursEntries(comparison) {
+    if (!Array.isArray(comparison?.best_hours_json) || comparison.best_hours_json.length === 0) {
+        return [];
+    }
+
+    return comparison.best_hours_json
+        .map((entry) => {
+            const hour = Number.parseInt(entry?.hour, 10);
+            if (!Number.isInteger(hour) || hour < 0 || hour > 23) {
+                return null;
+            }
+
+            return {
+                averageDelayMinutes: typeof entry?.average_delay_minutes === 'number'
+                    ? entry.average_delay_minutes
+                    : Number.parseFloat(entry?.average_delay_minutes),
+                hour,
+                sampleCount: Number.parseInt(entry?.sample_count, 10) || 0,
+            };
+        })
+        .filter(Boolean)
+        .sort((left, right) => left.hour - right.hour);
+}
+
+function formatBestHour(hour) {
+    try {
+        const locale = currentLang === 'es' ? 'es-MX' : 'en-US';
+        const date = new Date(Date.UTC(2000, 0, 1, hour, 0, 0));
+        return new Intl.DateTimeFormat(locale, {
+            hour: 'numeric',
+            timeZone: 'UTC',
+        }).format(date);
+    } catch (error) {
+        if (currentLang === 'es') {
+            if (hour === 0) return '12 a. m.';
+            if (hour < 12) return `${hour} a. m.`;
+            if (hour === 12) return '12 p. m.';
+            return `${hour - 12} p. m.`;
+        }
+
+        if (hour === 0) return '12 AM';
+        if (hour < 12) return `${hour} AM`;
+        if (hour === 12) return '12 PM';
+        return `${hour - 12} PM`;
+    }
+}
+
+function formatBestHoursText(comparison) {
+    const entries = getBestHoursEntries(comparison);
+    if (entries.length === 0) {
+        return null;
+    }
+
+    return entries
+        .slice(0, 3)
+        .map((entry) => formatBestHour(entry.hour))
+        .join(', ');
 }
 
 async function loadLaneComparisonsForPort(port) {
@@ -1226,6 +1307,9 @@ function renderLaneType(container, name, details, comparison = null, showCompari
     const tpl = document.getElementById('lane-type-template').content.cloneNode(true);
     tpl.querySelector('.lane-name').textContent = name;
     const trendEl = tpl.querySelector('.lane-trend');
+    const guidanceEl = tpl.querySelector('.lane-guidance');
+    const guidanceLabelEl = tpl.querySelector('.lane-guidance-label');
+    const guidanceValueEl = tpl.querySelector('.lane-guidance-value');
 
     const badge = tpl.querySelector('.delay-badge');
     const delay = details.delay_minutes;
@@ -1258,6 +1342,13 @@ function renderLaneType(container, name, details, comparison = null, showCompari
             trendEl.textContent = trend.text;
             trendEl.classList.remove('hidden');
             trendEl.classList.add(trend.className);
+        }
+
+        const bestHoursText = formatBestHoursText(comparison);
+        if (bestHoursText && guidanceEl && guidanceLabelEl && guidanceValueEl) {
+            guidanceLabelEl.textContent = `${t('bestHoursLabel')}:`;
+            guidanceValueEl.textContent = bestHoursText;
+            guidanceEl.classList.remove('hidden');
         }
     }
 
