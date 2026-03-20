@@ -22,6 +22,8 @@ let pushToastTimer = null;
 let dailyGuidanceSnapshot = null;
 let dailyGuidanceLoadPromise = null;
 let dailyGuidanceSyncPromise = null;
+let cardGuidanceHydrated = false;
+let cardGuidanceHydrationPromise = null;
 
 // Translations
 const TRANSLATIONS = {
@@ -200,6 +202,14 @@ const ALERT_LANE_LABELS = {
     fast: 'fast',
 };
 
+function isSupportedTravelMode(travelMode) {
+    return travelMode === 'passenger' || travelMode === 'pedestrian';
+}
+
+function isSupportedLaneType(laneType) {
+    return laneType === 'standard' || laneType === 'ready' || laneType === 'nexus_sentri';
+}
+
 const LANE_HISTORY_PORT_FALLBACKS = {
     '250609': '250601',
 };
@@ -259,7 +269,13 @@ function initializeSupabaseAlerts() {
         supabaseClient = window.garitaWatchSupabase || null;
         installationId = window.garitaWatchInstallationId || '';
         supabaseReady = Boolean(supabaseClient);
+        cardGuidanceHydrated = false;
+        cardGuidanceHydrationPromise = null;
         updateAlertsConnectionBadge();
+
+        if (allPorts.length > 0) {
+            render();
+        }
 
         if (activeDetailPort) {
             void loadAlertsForPort(activeDetailPort);
@@ -450,7 +466,9 @@ function getDailyGuidanceComparisonsForPort(port, snapshot) {
     return buildComparisonMapFromRows(rows);
 }
 
-function getTrendLabel(comparison) {
+function getTrendLabel(comparison, options = {}) {
+    const { includeNormal = true } = options;
+
     if (!comparison || comparison.trend_label === 'not_enough_data') {
         return null;
     }
@@ -470,6 +488,10 @@ function getTrendLabel(comparison) {
     }
 
     if (comparison.trend_label === 'about_normal') {
+        if (!includeNormal) {
+            return null;
+        }
+
         return {
             className: 'is-normal',
             text: t('trendAboutNormal'),
@@ -477,6 +499,18 @@ function getTrendLabel(comparison) {
     }
 
     return null;
+}
+
+function getCardTrendIconMarkup(trendClassName) {
+    if (trendClassName === 'is-faster') {
+        return '<span class="lane-trend-icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8.25"></circle><path d="M10 13.6V6.6"></path><path d="M6.9 9.7L10 6.6l3.1 3.1"></path></svg></span>';
+    }
+
+    if (trendClassName === 'is-slower') {
+        return '<span class="lane-trend-icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8.25"></circle><path d="M10 6.4v7"></path><path d="M6.9 10.3 10 13.4l3.1-3.1"></path></svg></span>';
+    }
+
+    return '';
 }
 
 function getBestHoursEntries(comparison) {
@@ -536,6 +570,27 @@ function formatBestHoursText(comparison) {
         .slice(0, 3)
         .map((entry) => formatBestHour(entry.hour))
         .join(', ');
+}
+
+function ensureCardGuidanceHydrated() {
+    if (cardGuidanceHydrated || cardGuidanceHydrationPromise || !supabaseReady || !supabaseClient) {
+        return;
+    }
+
+    cardGuidanceHydrationPromise = getDailyGuidanceSnapshot()
+        .catch((error) => {
+            console.warn('Unable to hydrate card lane guidance:', error);
+            return dailyGuidanceSnapshot;
+        })
+        .then(() => {
+            cardGuidanceHydrated = true;
+            if (allPorts.length > 0) {
+                render();
+            }
+        })
+        .finally(() => {
+            cardGuidanceHydrationPromise = null;
+        });
 }
 
 async function loadLaneComparisonsForPort(port) {
@@ -1185,6 +1240,7 @@ function render() {
     const cardTemplate = document.getElementById('port-card-template');
 
     filteredPorts.forEach(port => grid.appendChild(renderPortCard(cardTemplate, port)));
+    ensureCardGuidanceHydrated();
 }
 
 function renderPortCard(cardTemplate, port) {
@@ -1210,16 +1266,6 @@ function renderPortCard(cardTemplate, port) {
 
     clone.querySelector('.hours-text').textContent = port.hours || '';
 
-    // Show distance if using nearest sort
-    if (currentSort === 'nearest' && userLocation && port.lat && port.lng) {
-        const dist = haversine(userLocation.lat, userLocation.lng, port.lat, port.lng);
-        const distText = dist < 1 ? `${(dist * 1000).toFixed(0)}${t('mAway')}` : `${dist.toFixed(0)} ${t('kmAway')}`;
-        const distEl = document.createElement('span');
-        distEl.className = 'distance-badge';
-        distEl.textContent = `📍 ${distText}`;
-        clone.querySelector('.card-subtitle').appendChild(distEl);
-    }
-
     const favBtn = clone.querySelector('.fav-btn');
     if (favorites.includes(port.port_number)) {
         favBtn.classList.add('active');
@@ -1240,7 +1286,14 @@ function renderPortCard(cardTemplate, port) {
         }
     });
 
-    populateLanesContainer(clone.querySelector('.lanes-container'), port);
+    const cardComparisons = getDailyGuidanceComparisonsForPort(port, dailyGuidanceSnapshot);
+    populateLanesContainer(clone.querySelector('.lanes-container'), port, {
+        comparisons: cardComparisons,
+        includeNormalTrend: false,
+        layout: 'card',
+        showComparison: true,
+        showGuidance: false,
+    });
 
     // Dim card if ALL categories are pending/closed (#6)
     const allPending = isCardFullyPending(port);
@@ -1251,23 +1304,28 @@ function renderPortCard(cardTemplate, port) {
 
 function renderCategory(container, title, data, type, options = {}) {
     if (!data) return;
-    const { comparisons = {}, showComparison = false } = options;
+    const {
+        comparisons = {},
+        includeNormalTrend = true,
+        layout = 'stacked',
+        showComparison = false,
+        showGuidance = showComparison,
+    } = options;
 
     const categoryIcons = {
         passenger: '<svg viewBox="0 0 24 24"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>',
         pedestrian: '<svg viewBox="0 0 24 24"><path d="M13.5 5.5c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zM9.8 8.9L7 23h2.1l1.8-8 2.1 2v6h2v-7.5l-2.1-2 .6-3C14.8 12 16.8 13 19 13v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1L6 8.3V13h2V9.6l1.8-.7"/></svg>',
-        commercial: '<svg viewBox="0 0 24 24"><path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>'
     };
 
     // Helper: check if lane has real renderable data (not pending/closed/NA)
     const isLaneActive = (lane) => lane && !lane.isClosedOrNA && lane.operational_status !== 'Update Pending';
 
     // Check if there's any active lane types with real data
-    const hasRealData = isLaneActive(data.standard) || isLaneActive(data.fast) ||
+    const hasRealData = isLaneActive(data.standard) ||
         isLaneActive(data.ready) || isLaneActive(data.nexus_sentri);
 
     // Check if there's any pending lanes
-    const hasPendingLanes = ['standard', 'nexus_sentri', 'ready', 'fast']
+    const hasPendingLanes = ['standard', 'nexus_sentri', 'ready']
         .some(k => data[k] && data[k].operational_status === 'Update Pending');
 
     // #3: Hide category if no real data AND no pending data
@@ -1278,18 +1336,28 @@ function renderCategory(container, title, data, type, options = {}) {
     tpl.querySelector('.category-title').textContent = title;
     tpl.querySelector('.category-icon').innerHTML = categoryIcons[type] || '';
     const typesContainer = tpl.querySelector('.lane-types');
+    const laneRenderOptions = {
+        includeNormalTrend,
+        layout,
+        showComparison,
+        showGuidance,
+    };
+
+    if (layout === 'card') {
+        categoryDiv.classList.add('lane-category-card');
+        typesContainer.classList.add('lane-types-card');
+    }
 
     let addedType = false;
 
-    // Lane order: SENTRI → Ready → Standard → FAST
-    if (isLaneActive(data.nexus_sentri)) addedType |= renderLaneType(typesContainer, t('sentriNexus'), data.nexus_sentri, showComparison ? comparisons[getLaneComparisonKey(type, 'nexus_sentri')] : null, showComparison);
-    if (isLaneActive(data.ready)) addedType |= renderLaneType(typesContainer, t('readyLane'), data.ready, showComparison ? comparisons[getLaneComparisonKey(type, 'ready')] : null, showComparison);
-    if (isLaneActive(data.standard)) addedType |= renderLaneType(typesContainer, t('standard'), data.standard, showComparison ? comparisons[getLaneComparisonKey(type, 'standard')] : null, showComparison);
-    if (isLaneActive(data.fast)) addedType |= renderLaneType(typesContainer, t('fast'), data.fast, showComparison ? comparisons[getLaneComparisonKey(type, 'fast')] : null, showComparison);
+    // Lane order: SENTRI → Ready → Standard
+    if (isLaneActive(data.nexus_sentri)) addedType |= renderLaneType(typesContainer, t('sentriNexus'), data.nexus_sentri, showComparison ? comparisons[getLaneComparisonKey(type, 'nexus_sentri')] : null, laneRenderOptions);
+    if (isLaneActive(data.ready)) addedType |= renderLaneType(typesContainer, t('readyLane'), data.ready, showComparison ? comparisons[getLaneComparisonKey(type, 'ready')] : null, laneRenderOptions);
+    if (isLaneActive(data.standard)) addedType |= renderLaneType(typesContainer, t('standard'), data.standard, showComparison ? comparisons[getLaneComparisonKey(type, 'standard')] : null, laneRenderOptions);
 
     // #1: Collapse all-pending lanes into single message
     if (!addedType) {
-        const allPending = ['standard', 'nexus_sentri', 'ready', 'fast']
+        const allPending = ['standard', 'nexus_sentri', 'ready']
             .some(k => data[k] && data[k].operational_status === 'Update Pending');
         if (allPending) {
             typesContainer.innerHTML = `<div class="pending-message">${t('pendingUpdate')}</div>`;
@@ -1301,25 +1369,45 @@ function renderCategory(container, title, data, type, options = {}) {
     container.appendChild(categoryDiv);
 }
 
-function renderLaneType(container, name, details, comparison = null, showComparison = false) {
+function renderLaneType(container, name, details, comparison = null, options = {}) {
     if (!details || details.isClosedOrNA) return false;
 
+    const {
+        includeNormalTrend = true,
+        layout = 'stacked',
+        showComparison = false,
+        showGuidance = showComparison,
+    } = options;
     const tpl = document.getElementById('lane-type-template').content.cloneNode(true);
-    tpl.querySelector('.lane-name').textContent = name;
+    const laneTypeEl = tpl.querySelector('.lane-type');
+    const laneNameEl = tpl.querySelector('.lane-name');
+    laneNameEl.textContent = name;
+    const laneInfoEl = tpl.querySelector('.lane-info');
     const trendEl = tpl.querySelector('.lane-trend');
     const guidanceEl = tpl.querySelector('.lane-guidance');
     const guidanceLabelEl = tpl.querySelector('.lane-guidance-label');
     const guidanceValueEl = tpl.querySelector('.lane-guidance-value');
+    const laneDetailsEl = tpl.querySelector('.lane-details');
 
     const badge = tpl.querySelector('.delay-badge');
     const delay = details.delay_minutes;
     const delayNum = parseInt(delay);
+
+    if (layout === 'card') {
+        laneTypeEl.classList.add('lane-type-card');
+        laneInfoEl.classList.add('lane-info-card');
+        badge.classList.add('delay-badge-card');
+        laneInfoEl.insertBefore(badge, trendEl);
+    }
 
     if (!delay || delay === '' || isNaN(delayNum) || delayNum < 0) {
         badge.textContent = details.operational_status || 'N/A';
         badge.classList.add('na');
     } else {
         badge.textContent = delayNum === 0 ? t('noDelay') : `${delayNum} min`;
+        if (layout === 'card' && delayNum === 0) {
+            badge.classList.add('delay-badge-no-delay');
+        }
         // #9: Smoother continuous color gradient
         badge.style.color = getDelayColor(delayNum, 1);
     }
@@ -1337,19 +1425,34 @@ function renderLaneType(container, name, details, comparison = null, showCompari
     tpl.querySelector('.lane-update-time').textContent = details.update_time || '';
 
     if (showComparison && trendEl) {
-        const trend = getTrendLabel(comparison);
+        const trend = getTrendLabel(comparison, { includeNormal: includeNormalTrend });
         if (trend) {
-            trendEl.textContent = trend.text;
             trendEl.classList.remove('hidden');
             trendEl.classList.add(trend.className);
+
+            if (layout === 'card') {
+                trendEl.innerHTML = `${trend.text}${getCardTrendIconMarkup(trend.className)}`;
+
+                if (trend.className === 'is-faster') {
+                    badge.style.color = '#1dff5c';
+                } else if (trend.className === 'is-slower') {
+                    badge.style.color = '#ff3c3c';
+                }
+            } else {
+                trendEl.textContent = trend.text;
+            }
         }
 
-        const bestHoursText = formatBestHoursText(comparison);
+        const bestHoursText = showGuidance ? formatBestHoursText(comparison) : null;
         if (bestHoursText && guidanceEl && guidanceLabelEl && guidanceValueEl) {
             guidanceLabelEl.textContent = `${t('bestHoursLabel')}:`;
             guidanceValueEl.textContent = bestHoursText;
             guidanceEl.classList.remove('hidden');
         }
+    }
+
+    if (layout === 'card' && laneDetailsEl) {
+        laneDetailsEl.classList.add('hidden');
     }
 
     container.appendChild(tpl);
@@ -1361,10 +1464,9 @@ function populateLanesContainer(container, port, options = {}) {
 
     container.innerHTML = '';
 
-    // Order: Vehicles -> Pedestrians -> Commercial
+    // Order: Vehicles -> Pedestrians
     renderCategory(container, t('passengerVehicles'), port.passenger, 'passenger', options);
     renderCategory(container, t('pedestrians'), port.pedestrian, 'pedestrian', options);
-    renderCategory(container, t('commercialVehicles'), port.commercial, 'commercial', options);
 
     if (container.children.length === 0) {
         container.innerHTML = `<p style="color:var(--text-secondary);font-size:0.875rem;">${t('noLaneData')}</p>`;
@@ -1466,7 +1568,9 @@ async function loadAlertsForPort(port) {
         if (loadId !== alertLoadCounter) return;
         if (error) throw error;
 
-        currentPortAlerts = data || [];
+        currentPortAlerts = (data || []).filter((alert) =>
+            isSupportedTravelMode(alert.travel_mode) && isSupportedLaneType(alert.lane_type)
+        );
         renderCurrentPortAlerts();
         setAlertFormStatus(t('alertsReady'));
     } catch (error) {
@@ -1907,12 +2011,12 @@ function toTitleCase(str) {
 
 // #6: Check if all categories are pending
 function isCardFullyPending(port) {
-    const cats = [port.passenger, port.pedestrian, port.commercial];
+    const cats = [port.passenger, port.pedestrian];
     let hasAnyCat = false;
     for (const cat of cats) {
         if (!cat) continue;
         hasAnyCat = true;
-        const lanes = [cat.standard, cat.nexus_sentri, cat.ready, cat.fast];
+        const lanes = [cat.standard, cat.nexus_sentri, cat.ready];
         for (const lane of lanes) {
             if (lane && !lane.isClosedOrNA && lane.operational_status !== 'Update Pending') return false;
         }
@@ -1927,9 +2031,9 @@ function isCardAllUnavailable(port) {
 }
 
 function getPortLanes(port) {
-    return [port.passenger, port.pedestrian, port.commercial]
+    return [port.passenger, port.pedestrian]
         .filter(Boolean)
-        .flatMap(category => [category.standard, category.nexus_sentri, category.ready, category.fast])
+        .flatMap(category => [category.standard, category.nexus_sentri, category.ready])
         .filter(Boolean);
 }
 
