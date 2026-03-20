@@ -48,9 +48,9 @@ body {
 }
 
 .app-container {
-    max-width: 1600px;
+    max-width: 1520px;
     margin: 0 auto;
-    padding: 2rem clamp(1rem, 3vw, 3.5rem);
+    padding: 2rem clamp(1.25rem, 4vw, 4.5rem);
 }
 
 .glass-panel {
@@ -257,7 +257,7 @@ body {
 }
 
 .ports-grid {
-    columns: 3 460px;
+    columns: 3 420px;
     column-gap: 1rem;
 }
 
