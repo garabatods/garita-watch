@@ -14,6 +14,8 @@ let supabaseReady = false;
 let installationId = '';
 let currentPortAlerts = [];
 let alertLoadCounter = 0;
+let laneComparisonLoadCounter = 0;
+let currentLaneComparisons = {};
 let pushReady = false;
 let pushState = null;
 let pushToastTimer = null;
@@ -92,6 +94,9 @@ const TRANSLATIONS = {
         pushDisableError: 'No se pudieron desactivar las notificaciones.',
         pushSchemaMissing: 'Falta crear la tabla de suscripciones push en Supabase.',
         pushToastOpen: 'Abrir',
+        trendFasterThanUsual: 'Más rápido de lo usual',
+        trendSlowerThanUsual: 'Más lento de lo usual',
+        trendAboutNormal: 'Normal para esta hora',
         travelPassenger: 'Vehículos de Pasajeros',
         travelPedestrian: 'Peatones',
         travelCommercial: 'Vehículos Comerciales',
@@ -168,6 +173,9 @@ const TRANSLATIONS = {
         pushDisableError: 'Could not disable notifications.',
         pushSchemaMissing: 'The push subscriptions table has not been created in Supabase yet.',
         pushToastOpen: 'Open',
+        trendFasterThanUsual: 'Faster than usual',
+        trendSlowerThanUsual: 'Slower than usual',
+        trendAboutNormal: 'About normal right now',
         travelPassenger: 'Passenger Vehicles',
         travelPedestrian: 'Pedestrians',
         travelCommercial: 'Commercial Vehicles',
@@ -185,6 +193,10 @@ const ALERT_LANE_LABELS = {
     ready: 'readyLane',
     nexus_sentri: 'sentriNexus',
     fast: 'fast',
+};
+
+const LANE_HISTORY_PORT_FALLBACKS = {
+    '250609': '250601',
 };
 
 function t(key) { return TRANSLATIONS[currentLang][key] || TRANSLATIONS['en'][key] || key; }
@@ -243,6 +255,7 @@ function initializeSupabaseAlerts() {
 
         if (activeDetailPort) {
             void loadAlertsForPort(activeDetailPort);
+            void loadLaneComparisonsForPort(activeDetailPort);
         } else {
             renderCurrentPortAlerts();
         }
@@ -261,6 +274,109 @@ function initializeSupabaseAlerts() {
 function updateAlertsConnectionBadge() {
     if (!portAlertsBadge) return;
     portAlertsBadge.textContent = supabaseReady ? 'Supabase Ready' : 'Supabase';
+}
+
+function getLaneComparisonKey(travelMode, laneType) {
+    return `${travelMode}:${laneType}`;
+}
+
+function resolveLaneHistoryPortNumber(port) {
+    return LANE_HISTORY_PORT_FALLBACKS[port?.port_number] || port?.port_number || null;
+}
+
+function getTrendLabel(comparison) {
+    if (!comparison || comparison.trend_label === 'not_enough_data') {
+        return null;
+    }
+
+    if (comparison.trend_label === 'faster_than_usual') {
+        return {
+            className: 'is-faster',
+            text: t('trendFasterThanUsual'),
+        };
+    }
+
+    if (comparison.trend_label === 'slower_than_usual') {
+        return {
+            className: 'is-slower',
+            text: t('trendSlowerThanUsual'),
+        };
+    }
+
+    if (comparison.trend_label === 'about_normal') {
+        return {
+            className: 'is-normal',
+            text: t('trendAboutNormal'),
+        };
+    }
+
+    return null;
+}
+
+async function loadLaneComparisonsForPort(port) {
+    if (!portDetailLanes || !port) {
+        return;
+    }
+
+    if (!supabaseReady || !supabaseClient) {
+        currentLaneComparisons = {};
+        if (activeDetailPort?.port_number === port.port_number) {
+            populateLanesContainer(portDetailLanes, port, { comparisons: currentLaneComparisons, showComparison: true });
+        }
+        return;
+    }
+
+    const loadId = ++laneComparisonLoadCounter;
+    currentLaneComparisons = {};
+
+    const exactPortNumber = port.port_number;
+    const fallbackPortNumber = resolveLaneHistoryPortNumber(port);
+
+    try {
+        let { data, error } = await supabaseClient.rpc('get_lane_wait_comparison', {
+            in_lane_type: null,
+            in_lookback_days: 7,
+            in_minimum_samples: 12,
+            in_port_number: exactPortNumber,
+            in_travel_mode: null,
+        });
+
+        if (error) {
+            throw error;
+        }
+
+        if ((!data || data.length === 0) && fallbackPortNumber && fallbackPortNumber !== exactPortNumber) {
+            const fallbackResult = await supabaseClient.rpc('get_lane_wait_comparison', {
+                in_lane_type: null,
+                in_lookback_days: 7,
+                in_minimum_samples: 12,
+                in_port_number: fallbackPortNumber,
+                in_travel_mode: null,
+            });
+
+            if (fallbackResult.error) {
+                throw fallbackResult.error;
+            }
+
+            data = fallbackResult.data;
+        }
+
+        if (loadId !== laneComparisonLoadCounter) {
+            return;
+        }
+
+        currentLaneComparisons = (data || []).reduce((acc, row) => {
+            acc[getLaneComparisonKey(row.travel_mode, row.lane_type)] = row;
+            return acc;
+        }, {});
+    } catch (error) {
+        console.warn('Unable to load lane comparisons:', error);
+        currentLaneComparisons = {};
+    }
+
+    if (activeDetailPort?.port_number === port.port_number) {
+        populateLanesContainer(portDetailLanes, port, { comparisons: currentLaneComparisons, showComparison: true });
+    }
 }
 
 function initializePushNotifications() {
@@ -895,8 +1011,9 @@ function renderPortCard(cardTemplate, port) {
     return clone;
 }
 
-function renderCategory(container, title, data, type) {
+function renderCategory(container, title, data, type, options = {}) {
     if (!data) return;
+    const { comparisons = {}, showComparison = false } = options;
 
     const categoryIcons = {
         passenger: '<svg viewBox="0 0 24 24"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>',
@@ -927,10 +1044,10 @@ function renderCategory(container, title, data, type) {
     let addedType = false;
 
     // Lane order: SENTRI → Ready → Standard → FAST
-    if (isLaneActive(data.nexus_sentri)) addedType |= renderLaneType(typesContainer, t('sentriNexus'), data.nexus_sentri);
-    if (isLaneActive(data.ready)) addedType |= renderLaneType(typesContainer, t('readyLane'), data.ready);
-    if (isLaneActive(data.standard)) addedType |= renderLaneType(typesContainer, t('standard'), data.standard);
-    if (isLaneActive(data.fast)) addedType |= renderLaneType(typesContainer, t('fast'), data.fast);
+    if (isLaneActive(data.nexus_sentri)) addedType |= renderLaneType(typesContainer, t('sentriNexus'), data.nexus_sentri, showComparison ? comparisons[getLaneComparisonKey(type, 'nexus_sentri')] : null, showComparison);
+    if (isLaneActive(data.ready)) addedType |= renderLaneType(typesContainer, t('readyLane'), data.ready, showComparison ? comparisons[getLaneComparisonKey(type, 'ready')] : null, showComparison);
+    if (isLaneActive(data.standard)) addedType |= renderLaneType(typesContainer, t('standard'), data.standard, showComparison ? comparisons[getLaneComparisonKey(type, 'standard')] : null, showComparison);
+    if (isLaneActive(data.fast)) addedType |= renderLaneType(typesContainer, t('fast'), data.fast, showComparison ? comparisons[getLaneComparisonKey(type, 'fast')] : null, showComparison);
 
     // #1: Collapse all-pending lanes into single message
     if (!addedType) {
@@ -946,11 +1063,12 @@ function renderCategory(container, title, data, type) {
     container.appendChild(categoryDiv);
 }
 
-function renderLaneType(container, name, details) {
+function renderLaneType(container, name, details, comparison = null, showComparison = false) {
     if (!details || details.isClosedOrNA) return false;
 
     const tpl = document.getElementById('lane-type-template').content.cloneNode(true);
     tpl.querySelector('.lane-name').textContent = name;
+    const trendEl = tpl.querySelector('.lane-trend');
 
     const badge = tpl.querySelector('.delay-badge');
     const delay = details.delay_minutes;
@@ -977,19 +1095,28 @@ function renderLaneType(container, name, details) {
     tpl.querySelector('.lanes-open').textContent = detailsText;
     tpl.querySelector('.lane-update-time').textContent = details.update_time || '';
 
+    if (showComparison && trendEl) {
+        const trend = getTrendLabel(comparison);
+        if (trend) {
+            trendEl.textContent = trend.text;
+            trendEl.classList.remove('hidden');
+            trendEl.classList.add(trend.className);
+        }
+    }
+
     container.appendChild(tpl);
     return true;
 }
 
-function populateLanesContainer(container, port) {
+function populateLanesContainer(container, port, options = {}) {
     if (!container) return;
 
     container.innerHTML = '';
 
     // Order: Vehicles -> Pedestrians -> Commercial
-    renderCategory(container, t('passengerVehicles'), port.passenger, 'passenger');
-    renderCategory(container, t('pedestrians'), port.pedestrian, 'pedestrian');
-    renderCategory(container, t('commercialVehicles'), port.commercial, 'commercial');
+    renderCategory(container, t('passengerVehicles'), port.passenger, 'passenger', options);
+    renderCategory(container, t('pedestrians'), port.pedestrian, 'pedestrian', options);
+    renderCategory(container, t('commercialVehicles'), port.commercial, 'commercial', options);
 
     if (container.children.length === 0) {
         container.innerHTML = `<p style="color:var(--text-secondary);font-size:0.875rem;">${t('noLaneData')}</p>`;
@@ -1363,7 +1490,9 @@ function openPortDetail(port, cardElement) {
     updateAlertPreviewForActivePort();
     void refreshPushState();
     void loadAlertsForPort(port);
-    populateLanesContainer(portDetailLanes, port);
+    currentLaneComparisons = {};
+    populateLanesContainer(portDetailLanes, port, { comparisons: currentLaneComparisons, showComparison: true });
+    void loadLaneComparisonsForPort(port);
 
     portDetailModal.classList.remove('hidden');
     portDetailModal.setAttribute('aria-hidden', 'false');
@@ -1382,6 +1511,7 @@ function closePortDetail() {
 
     activeDetailPort = null;
     currentPortAlerts = [];
+    currentLaneComparisons = {};
     portDetailModal.classList.add('hidden');
     portDetailModal.setAttribute('aria-hidden', 'true');
     document.body.classList.remove('modal-open');

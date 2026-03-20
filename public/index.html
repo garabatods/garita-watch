@@ -195,6 +195,7 @@
             <span class="delay-badge"></span>
             <div class="lane-info">
                 <span class="lane-name"></span>
+                <span class="lane-trend hidden"></span>
                 <div class="lane-details">
                     <span class="lanes-open"></span>
                     <span class="lane-update-time"></span>
@@ -204,14 +205,10 @@
     </template>
 
     <footer class="app-footer">
-        <p>© 2026 Garita Watch · <span class="version-badge">v1.0-beta</span></p>
+        <p>© 2026 Garita Watch · <span class="version-badge">v1.2-alpha</span></p>
         <p data-i18n="footerDisclaimer">Datos obtenidos de U.S. Customs and Border Protection. Sin afiliación ni
             respaldo de ninguna agencia gubernamental.</p>
         <p><a href="mailto:contact@garitawatch.com">contact@garitawatch.com</a></p>
-        <div class="footer-tools">
-            <button id="supabase-test-btn" class="footer-test-btn" type="button">Test Supabase</button>
-            <span id="supabase-test-status" class="footer-test-status" aria-live="polite">Not checked</span>
-        </div>
     </footer>
 
     <div id="push-toast" class="push-toast" hidden>

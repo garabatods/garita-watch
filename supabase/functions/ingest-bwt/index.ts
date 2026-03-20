@@ -33,6 +33,19 @@ type SnapshotInsert = {
   vehicle_status: string;
 };
 
+type LaneSnapshotInsert = {
+  capture_minute_utc: string;
+  crossing_name: string | null;
+  delay_minutes: number;
+  feed_updated_at: string | null;
+  lane_type: LaneType;
+  observed_at: string;
+  operational_status: string | null;
+  port_name: string;
+  port_number: string;
+  travel_mode: TravelMode;
+};
+
 type Summary = {
   errors: string[];
   fetched: number;
@@ -153,6 +166,35 @@ Deno.serve(async (req) => {
     const conflictIgnored = rowsToInsert.length - insertedPortNumbers.length;
     if (conflictIgnored > 0) {
       summary.skipped.duplicate_capture_minute += conflictIgnored;
+    }
+
+    const laneRowsToInsert = matchedAlertSnapshots.map((snapshot) => ({
+      capture_minute_utc: toUtcMinuteString(snapshot.observed_at),
+      crossing_name: snapshot.crossing_name ?? null,
+      delay_minutes: snapshot.delay_minutes ?? 0,
+      feed_updated_at: feedUpdatedAt,
+      lane_type: snapshot.lane_type,
+      observed_at: snapshot.observed_at,
+      operational_status: snapshot.operational_status ?? null,
+      port_name: snapshot.port_name,
+      port_number: snapshot.port_number,
+      travel_mode: snapshot.travel_mode,
+    } satisfies LaneSnapshotInsert));
+
+    if (laneRowsToInsert.length > 0) {
+      try {
+        await insertLaneSnapshots(
+          supabaseUrl,
+          serviceRoleKey,
+          laneRowsToInsert,
+        );
+      } catch (error) {
+        if (isMissingTableError(error, "port_lane_wait_snapshots")) {
+          console.warn("Skipping port_lane_wait_snapshots insert because the table is not available yet.");
+        } else {
+          throw error;
+        }
+      }
     }
 
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
@@ -530,6 +572,29 @@ async function insertSnapshots(
   return insertedRows.map((row) => row.port_number);
 }
 
+async function insertLaneSnapshots(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  rows: LaneSnapshotInsert[],
+): Promise<Array<{ port_number: string; travel_mode: TravelMode; lane_type: LaneType }>> {
+  const url = new URL(`${supabaseUrl}/rest/v1/port_lane_wait_snapshots`);
+  url.searchParams.set("on_conflict", "port_number,travel_mode,lane_type,capture_minute_utc");
+  url.searchParams.set("select", "port_number,travel_mode,lane_type");
+
+  return await supabaseRequest<Array<{ port_number: string; travel_mode: TravelMode; lane_type: LaneType }>>(
+    url,
+    serviceRoleKey,
+    {
+      body: JSON.stringify(rows),
+      headers: {
+        "Content-Type": "application/json",
+        Prefer: "resolution=ignore-duplicates,return=representation",
+      },
+      method: "POST",
+    },
+  );
+}
+
 async function supabaseRequest<T>(
   url: URL,
   serviceRoleKey: string,
@@ -564,6 +629,11 @@ function usableDelay(delayText: string, status: string): number | null {
 
   const parsed = Number.parseInt(delayText, 10);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function isMissingTableError(error: unknown, tableName: string): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes("42P01") || (message.includes(tableName) && message.includes("does not exist"));
 }
 
 function selectBestLane(

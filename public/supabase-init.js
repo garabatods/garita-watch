@@ -44,61 +44,6 @@ window.garitaWatchSupabaseConfig = {
 };
 window.garitaWatchInstallationId = installationId;
 
-async function testSupabaseConnection() {
-    const response = await fetch(`${supabaseUrl}/rest/v1/`, {
-        method: "GET",
-        headers: {
-            apikey: supabaseAnonKey,
-            Authorization: `Bearer ${supabaseAnonKey}`,
-        },
-    });
-
-    if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-    }
-
-    return response;
-}
-
-window.testSupabaseConnection = testSupabaseConnection;
-
-function setTestStatus(element, text, kind) {
-    element.textContent = text;
-    element.classList.remove("is-success", "is-error");
-
-    if (kind === "success") {
-        element.classList.add("is-success");
-    } else if (kind === "error") {
-        element.classList.add("is-error");
-    }
-}
-
-function attachSupabaseTestButton() {
-    const button = document.getElementById("supabase-test-btn");
-    const status = document.getElementById("supabase-test-status");
-
-    if (!button || !status) {
-        return;
-    }
-
-    button.addEventListener("click", async () => {
-        button.disabled = true;
-        setTestStatus(status, "Checking...", null);
-
-        try {
-            const response = await testSupabaseConnection();
-            setTestStatus(status, `Connected (${response.status})`, "success");
-        } catch (error) {
-            console.error("Supabase connection test failed:", error);
-            setTestStatus(status, `Failed: ${error.message}`, "error");
-        } finally {
-            button.disabled = false;
-        }
-    });
-}
-
-attachSupabaseTestButton();
-
 window.dispatchEvent(new CustomEvent("garitaWatchSupabaseReady", {
     detail: {
         installationId,
