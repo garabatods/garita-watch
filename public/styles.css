@@ -48,9 +48,9 @@ body {
 }
 
 .app-container {
-    max-width: 1520px;
+    max-width: 1680px;
     margin: 0 auto;
-    padding: 2rem clamp(1.25rem, 4vw, 4.5rem);
+    padding: 2rem clamp(1.75rem, 5vw, 6rem);
 }
 
 .glass-panel {
@@ -1339,7 +1339,7 @@ body.modal-open {
     cursor: pointer;
 }
 
-@media (max-width: 1320px) {
+@media (max-width: 1180px) {
     .ports-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
