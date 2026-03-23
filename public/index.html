@@ -107,51 +107,12 @@
                 <div class="port-alerts-header">
                     <div>
                         <h3 class="port-alerts-title" data-i18n="alertsTitle">Alertas de espera</h3>
-                        <p class="port-alerts-subtitle" data-i18n="alertsSubtitle">Guarda alertas para esta garita y recíbelos cuando la espera baje.</p>
+                        <p class="port-alerts-subtitle" data-i18n="alertsSubtitle">Elige un carril, define tu tiempo ideal y te avisaremos cuando baje.</p>
                     </div>
-                    <span id="port-alerts-badge" class="badge outline">Supabase</span>
                 </div>
 
-                <div class="push-permission-panel">
-                    <div class="push-permission-copy">
-                        <p class="push-permission-title" data-i18n="pushTitle">Notificaciones web</p>
-                        <p id="push-permission-status" class="push-permission-status" aria-live="polite">Configuring push...</p>
-                    </div>
-                    <button id="push-permission-button" class="push-permission-button" type="button">Enable notifications</button>
-                </div>
-
-                <form id="port-alert-form" class="port-alert-form">
-                    <label class="port-alert-field">
-                        <span data-i18n="alertsTravelModeLabel">Tipo de cruce</span>
-                        <select id="alert-travel-mode">
-                            <option value="passenger" data-i18n="travelPassenger">Vehículos de Pasajeros</option>
-                            <option value="pedestrian" data-i18n="travelPedestrian">Peatones</option>
-                        </select>
-                    </label>
-
-                    <label class="port-alert-field">
-                        <span data-i18n="alertsLaneTypeLabel">Carril</span>
-                        <select id="alert-lane-type">
-                            <option value="standard" data-i18n="standard">Estándar</option>
-                            <option value="ready" data-i18n="readyLane">Ready Lane</option>
-                            <option value="nexus_sentri" data-i18n="sentriNexus">SENTRI/NEXUS</option>
-                        </select>
-                    </label>
-
-                    <label class="port-alert-field">
-                        <span data-i18n="alertsThresholdLabel">Notifícame cuando esté por debajo de</span>
-                        <div class="port-alert-threshold-wrap">
-                            <input id="alert-threshold" type="number" min="0" step="5" value="60" inputmode="numeric">
-                            <span class="port-alert-threshold-unit" data-i18n="alertsMinutesUnit">min</span>
-                        </div>
-                    </label>
-
-                    <button id="port-alert-submit" class="port-alert-submit" type="submit" data-i18n="alertsCreateButton">Guardar alerta</button>
-                </form>
-
-                <p id="port-alert-current-wait" class="port-alert-current-wait"></p>
                 <p id="port-alert-form-status" class="port-alert-form-status" aria-live="polite"></p>
-                <div id="port-alerts-list" class="port-alerts-list"></div>
+                <div id="port-alert-composer" class="port-alert-composer"></div>
             </section>
             <div id="port-detail-lanes" class="lanes-container port-detail-lanes"></div>
         </div>

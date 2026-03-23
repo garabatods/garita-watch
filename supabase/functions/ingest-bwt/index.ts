@@ -227,24 +227,29 @@ Deno.serve(async (req) => {
         }
 
         const laneLabel = formatLaneLabel(snapshot.travel_mode, snapshot.lane_type);
-        const portLabel = snapshot.crossing_name || snapshot.port_name;
+        const portLabel = formatNotificationPortLabel(
+          snapshot.port_name,
+          snapshot.crossing_name,
+          snapshot.travel_mode,
+        );
         const delayLabel = snapshot.delay_minutes === 0 ? "No delay" : `${snapshot.delay_minutes} min`;
 
         try {
           const result = await sendFcmWebPush({
-            body: `${portLabel}: ${laneLabel} is now ${delayLabel}.`,
+            body: `${laneLabel} is now ${delayLabel}.`,
             data: {
               alert_id: alert.id,
               installation_id: alert.installation_id,
               lane_type: snapshot.lane_type,
               link: Deno.env.get("PUBLIC_WEB_URL") || "/",
+              port_label: portLabel,
               port_number: snapshot.port_number,
               threshold_minutes: String(alert.threshold_minutes),
               travel_mode: snapshot.travel_mode,
             },
             serviceAccountJson,
             targetToken: subscription.fcm_token,
-            title: "Garita Watch alert",
+            title: portLabel,
             webUrl: Deno.env.get("PUBLIC_WEB_URL"),
           });
 
@@ -545,6 +550,62 @@ function formatLaneLabel(travelMode: TravelMode, laneType: LaneType): string {
   };
 
   return `${travelLabels[travelMode]} · ${laneLabels[laneType]}`;
+}
+
+function formatNotificationPortLabel(
+  portName: string,
+  crossingName: string | null | undefined,
+  travelMode: TravelMode,
+): string {
+  const basePortName = `${portName || ""}`.trim();
+  const baseCrossingName = `${crossingName || ""}`.trim();
+
+  if (!baseCrossingName) {
+    return basePortName;
+  }
+
+  const normalizedPortName = normalizeNotificationLabel(basePortName);
+  const normalizedCrossingName = normalizeNotificationLabel(baseCrossingName);
+  const genericCrossingNames = new Set<string>([
+    "passenger",
+    "passengers",
+    "pedestrian",
+    "pedestrians",
+    "commercial",
+    "commercial vehicles",
+    "cargo",
+    travelMode,
+    normalizeNotificationLabel(formatTravelModeName(travelMode)),
+  ]);
+
+  if (
+    normalizedCrossingName === "" ||
+    normalizedCrossingName === normalizedPortName ||
+    genericCrossingNames.has(normalizedCrossingName)
+  ) {
+    return basePortName;
+  }
+
+  return `${basePortName} - ${baseCrossingName}`;
+}
+
+function formatTravelModeName(travelMode: TravelMode): string {
+  const travelLabels: Record<TravelMode, string> = {
+    passenger: "Passenger vehicles",
+    pedestrian: "Pedestrians",
+    commercial: "Commercial vehicles",
+  };
+
+  return travelLabels[travelMode];
+}
+
+function normalizeNotificationLabel(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/gi, " ")
+    .trim()
+    .toLowerCase();
 }
 
 async function insertSnapshots(

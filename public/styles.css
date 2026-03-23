@@ -930,103 +930,23 @@ body {
 
 .port-alerts-header {
     display: flex;
-    justify-content: space-between;
     gap: 0.75rem;
     align-items: flex-start;
-    margin-bottom: 0.85rem;
+    margin-bottom: 0.55rem;
 }
 
 .port-alerts-title {
-    font-size: 1rem;
+    font-size: 1.05rem;
     line-height: 1.2;
 }
 
 .port-alerts-subtitle {
     margin-top: 0.2rem;
     color: var(--text-secondary);
-    font-size: 0.82rem;
+    font-size: 0.86rem;
+    max-width: 42rem;
 }
 
-.push-permission-panel {
-    display: flex;
-    justify-content: space-between;
-    gap: 0.75rem;
-    align-items: center;
-    margin-bottom: 0.95rem;
-    padding: 0.8rem 0.9rem;
-    border-radius: 10px;
-    background: rgba(15, 23, 42, 0.48);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.push-permission-copy {
-    min-width: 0;
-}
-
-.push-permission-title {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--text-primary);
-}
-
-.push-permission-status {
-    margin-top: 0.15rem;
-    font-size: 0.78rem;
-    color: var(--text-secondary);
-}
-
-.push-permission-status.is-success {
-    color: #6ee7b7;
-}
-
-.push-permission-status.is-error {
-    color: #fca5a5;
-}
-
-.push-permission-button {
-    border: 1px solid rgba(59, 130, 246, 0.28);
-    background: rgba(59, 130, 246, 0.14);
-    color: var(--accent-hover);
-    border-radius: 9999px;
-    padding: 0.55rem 0.9rem;
-    font: inherit;
-    font-size: 0.78rem;
-    font-weight: 600;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: background 0.2s ease, color 0.2s ease, opacity 0.2s ease;
-}
-
-.push-permission-button:hover {
-    background: rgba(59, 130, 246, 0.22);
-    color: var(--text-primary);
-}
-
-.push-permission-button:disabled {
-    opacity: 0.72;
-    cursor: wait;
-}
-
-.port-alert-form {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0.75rem;
-    align-items: end;
-}
-
-.port-alert-field {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-    min-width: 0;
-}
-
-.port-alert-field span {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-}
-
-.port-alert-field select,
 .port-alert-threshold-wrap input {
     width: 100%;
     border: 1px solid rgba(255, 255, 255, 0.08);
@@ -1037,7 +957,6 @@ body {
     font: inherit;
 }
 
-.port-alert-field select:focus,
 .port-alert-threshold-wrap input:focus {
     outline: none;
     border-color: var(--accent);
@@ -1062,33 +981,10 @@ body {
     pointer-events: none;
 }
 
-.port-alert-submit {
-    border: 1px solid rgba(59, 130, 246, 0.28);
-    background: rgba(59, 130, 246, 0.14);
-    color: var(--accent-hover);
-    border-radius: 10px;
-    padding: 0.78rem 1rem;
-    font: inherit;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
-}
-
-.port-alert-submit:hover {
-    background: rgba(59, 130, 246, 0.22);
-    color: var(--text-primary);
-}
-
-.port-alert-submit:disabled {
-    opacity: 0.7;
-    cursor: wait;
-}
-
-.port-alert-current-wait,
 .port-alert-form-status,
 .port-alert-empty {
-    margin-top: 0.7rem;
-    font-size: 0.8rem;
+    margin-top: 0.5rem;
+    font-size: 0.82rem;
     color: var(--text-secondary);
 }
 
@@ -1104,62 +1000,161 @@ body {
     color: var(--text-secondary);
 }
 
-.port-alerts-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-    margin-top: 0.85rem;
+.port-alert-composer {
+    display: grid;
+    gap: 0.85rem;
+    margin-top: 0.95rem;
 }
 
-.port-alert-item {
+.lane-alert-card {
     display: flex;
-    justify-content: space-between;
-    gap: 0.75rem;
-    align-items: center;
-    padding: 0.75rem 0.85rem;
-    border-radius: 10px;
+    flex-direction: column;
+    gap: 0.8rem;
+    padding: 0.95rem 1rem;
+    border-radius: 14px;
     background: rgba(15, 23, 42, 0.58);
     border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.port-alert-item-copy {
+.lane-alert-card-header {
     display: flex;
-    flex-direction: column;
-    gap: 0.18rem;
+    justify-content: space-between;
+    gap: 0.8rem;
+    align-items: flex-start;
+}
+
+.lane-alert-card-copy {
     min-width: 0;
 }
 
-.port-alert-item-title {
-    font-size: 0.9rem;
-    color: var(--text-primary);
-    font-weight: 600;
+.lane-alert-card-eyebrow {
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: 0.18rem;
 }
 
-.port-alert-item-meta {
-    font-size: 0.76rem;
+.lane-alert-card-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.1;
+}
+
+.lane-alert-card-wait-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.1rem;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.lane-alert-card-wait-label {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.lane-alert-card-wait {
+    font-size: 1.4rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.lane-alert-card-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.75rem;
+    align-items: end;
+}
+
+.lane-alert-card-threshold {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
+}
+
+.lane-alert-card-threshold > span {
+    font-size: 0.75rem;
     color: var(--text-secondary);
 }
 
-.port-alert-delete {
-    border: 1px solid rgba(239, 68, 68, 0.28);
-    background: rgba(239, 68, 68, 0.12);
-    color: #fca5a5;
-    border-radius: 9999px;
-    padding: 0.38rem 0.7rem;
+.lane-alert-card-submit {
+    border: 1px solid rgba(59, 130, 246, 0.28);
+    background: rgba(59, 130, 246, 0.14);
+    color: var(--accent-hover);
+    border-radius: 10px;
+    padding: 0.78rem 1rem;
     font: inherit;
-    font-size: 0.76rem;
+    font-weight: 600;
     cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
     white-space: nowrap;
-    transition: background 0.2s ease, color 0.2s ease;
 }
 
-.port-alert-delete:hover {
-    background: rgba(239, 68, 68, 0.2);
-    color: #fee2e2;
+.lane-alert-card-submit:hover {
+    background: rgba(59, 130, 246, 0.22);
+    color: var(--text-primary);
+}
+
+.lane-alert-card-submit:disabled {
+    opacity: 0.7;
+    cursor: wait;
+}
+
+.lane-alert-card-saved {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.lane-alert-card-saved-label,
+.lane-alert-card-empty {
+    font-size: 0.74rem;
+    color: var(--text-secondary);
+}
+
+.lane-alert-card-saved-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.lane-alert-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.38rem;
+    padding: 0.38rem 0.55rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+    font-size: 0.77rem;
+    font-weight: 600;
+}
+
+.lane-alert-pill-delete {
+    border: none;
+    background: transparent;
+    color: #fca5a5;
+    font: inherit;
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
 }
 
 .port-detail-lanes {
     gap: 0.85rem;
+}
+
+.lane-alert-card.is-highlighted {
+    border-color: rgba(45, 212, 191, 0.38);
+    box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.12);
 }
 
 body.modal-open {
@@ -1187,8 +1182,12 @@ body.modal-open {
     font-size: 0.76rem;
 }
 
-.lane-type-card .lane-guidance {
+.lane-type-card:not(.lane-type-card-detail) .lane-guidance {
     display: none !important;
+}
+
+.lane-type-card-detail .lane-guidance {
+    margin-top: 0.12rem;
 }
 
 .hidden {
@@ -1641,17 +1640,22 @@ body.modal-open {
         flex-direction: column;
     }
 
-    .push-permission-panel {
+    .lane-alert-card {
+        padding: 0.9rem;
+    }
+
+    .lane-alert-card-header {
         flex-direction: column;
         align-items: flex-start;
     }
 
-    .port-alert-form {
+    .lane-alert-card-wait-wrap {
+        align-items: flex-start;
+        text-align: left;
+    }
+
+    .lane-alert-card-controls {
         grid-template-columns: 1fr;
     }
 
-    .port-alert-item {
-        flex-direction: column;
-        align-items: flex-start;
-    }
 }
